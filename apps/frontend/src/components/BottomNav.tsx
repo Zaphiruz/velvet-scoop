@@ -1,11 +1,12 @@
 import { NavLink } from 'react-router-dom';
-import { Home, IceCream, Shield, User } from 'lucide-react';
+import { ClipboardList, Home, IceCream, Shield, User } from 'lucide-react';
 import { cn } from '../lib/cn';
 import { useGetMeQuery } from '../api/api';
 
 const baseTabs = [
   { to: '/', label: 'Home', icon: Home },
   { to: '/items', label: 'Flavors', icon: IceCream },
+  { to: '/requests', label: 'Orders', icon: ClipboardList },
   { to: '/profile', label: 'Profile', icon: User },
 ] as const;
 
