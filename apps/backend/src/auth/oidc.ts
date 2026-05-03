@@ -84,7 +84,11 @@ export function createOidcClient(config: OidcConfig): OidcClient {
 }
 
 async function buildClient(config: OidcConfig): Promise<InnerClient> {
-  const { Issuer, generators } = await import('openid-client');
+  const { Issuer, generators, custom } = await import('openid-client');
+  // Self-hosted Authentik behind Cloudflare can take several seconds to
+  // respond to token endpoint POSTs (cold workers). The 3500ms default is
+  // too tight for that.
+  custom.setHttpOptionsDefaults({ timeout: 10000 });
   const issuer = await Issuer.discover(config.issuer);
   const client = new issuer.Client({
     client_id: config.clientId,
