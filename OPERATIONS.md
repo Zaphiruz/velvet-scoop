@@ -42,6 +42,29 @@ Mirrors the dinner-club pattern documented in `/d/docs/mikrotik/CLAUDE.md` ("Add
    ```
    The route only registers when the token is present; without it, POSTs to `/api/feedback` 404.
 
+   **Optional — email notifications (Resend over SMTP):** order lifecycle emails — owners get the new-order alert, customers get accept/complete/cancel.
+   ```bash
+   vault kv patch secret/velvet-scoop \
+     SMTP_HOST='smtp.resend.com' \
+     SMTP_PORT='465' \
+     SMTP_USER='resend' \
+     SMTP_PASS='re_<resend-api-key>' \
+     SMTP_FROM='Velvet Scoop <velvet-scoops@mail.wispy-nook.casa>'
+   ```
+   The `SMTP_FROM` domain must be verified in Resend AND the API key authorized for it. In the admin UI (Users tab), toggle "Make owner" on the admin accounts that should receive owner notifications. Without `SMTP_HOST`, notifications are silently skipped.
+
+   **Optional — push notifications:** generate a VAPID key pair once and add it to Vault. Rotate only on compromise.
+   ```bash
+   pnpm dlx web-push generate-vapid-keys --json
+   # → { "publicKey": "...", "privateKey": "..." }
+
+   vault kv patch secret/velvet-scoop \
+     VAPID_PUBLIC_KEY='<public>' \
+     VAPID_PRIVATE_KEY='<private>' \
+     VAPID_SUBJECT='mailto:velvet-scoops@mail.wispy-nook.casa'
+   ```
+   Signed-in users see "Enable notifications" on Profile after restart. Owners get push on new orders + cancellations; the order's customer (if signed in on a device with push subs) gets push on accept/complete/cancel. Without `VAPID_*`, the Profile section says push isn't configured and `/api/push/vapid-public-key` returns 503.
+
 3. **Vault token** (LC3):
    ```bash
    bash /opt/vault/add-app-token.sh velvet-scoop velvet-scoop
