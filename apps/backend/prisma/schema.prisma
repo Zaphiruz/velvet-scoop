@@ -34,11 +34,12 @@ model User {
   createdAt    DateTime  @default(now()) @map("created_at")
   updatedAt    DateTime  @updatedAt @map("updated_at")
 
-  requests         Request[]
-  reviews          Review[]
-  messagesSent     Message[]  @relation("MessageSender")
-  messagesReceived Message[]  @relation("MessageRecipient")
-  auditEntries     AuditLog[]
+  requests            Request[]
+  reviews             Review[]
+  messagesSent        Message[]            @relation("MessageSender")
+  messagesReceived    Message[]            @relation("MessageRecipient")
+  auditEntries        AuditLog[]
+  feedbackSubmissions FeedbackSubmission[]
 
   @@map("users")
 }
@@ -134,6 +135,24 @@ model Message {
   @@index([senderId])
   @@index([recipientId])
   @@map("messages")
+}
+
+model FeedbackSubmission {
+  id             String    @id @default(uuid()) @db.Uuid
+  userId         String    @map("user_id") @db.Uuid
+  issueNumber    Int       @map("issue_number")
+  issueUrl       String    @map("issue_url")
+  title          String
+  state          String?
+  stateReason    String?   @map("state_reason")
+  closedAt       DateTime? @map("closed_at")
+  stateFetchedAt DateTime? @map("state_fetched_at")
+  createdAt      DateTime  @default(now()) @map("created_at")
+
+  user User @relation(fields: [userId], references: [id])
+
+  @@index([userId, createdAt])
+  @@map("feedback_submissions")
 }
 
 model AuditLog {

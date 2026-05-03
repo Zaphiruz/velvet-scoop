@@ -4,6 +4,7 @@ import { disconnectPrisma, getPrisma } from './db.js';
 import { disconnectRedis, getRedis } from './redis.js';
 import { createSessionStore } from './auth/session.js';
 import { createOidcClient } from './auth/oidc.js';
+import { createGithubClient } from './services/github.js';
 
 async function main() {
   const cfg = loadConfig();
@@ -16,6 +17,14 @@ async function main() {
     clientSecret: cfg.oidc.clientSecret,
     redirectUri: cfg.oidc.redirectUri,
   });
+
+  const githubClient = cfg.github.feedbackToken
+    ? createGithubClient({
+        token: cfg.github.feedbackToken,
+        owner: cfg.github.feedbackRepoOwner,
+        repo: cfg.github.feedbackRepoName,
+      })
+    : undefined;
 
   const app = await buildApp({
     logger: true,
@@ -32,6 +41,7 @@ async function main() {
       adminGroup: cfg.authentik.adminGroup,
     },
     frontendOrigin: cfg.frontendOrigin,
+    ...(githubClient ? { githubClient } : {}),
   });
 
   let shuttingDown = false;

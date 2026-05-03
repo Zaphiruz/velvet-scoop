@@ -20,6 +20,11 @@ export interface AppConfig {
     memberGroup: string;
     adminGroup: string;
   };
+  github: {
+    feedbackToken: string;
+    feedbackRepoOwner: string;
+    feedbackRepoName: string;
+  };
 }
 
 function required(name: string): string {
@@ -61,6 +66,11 @@ export function loadConfig(): AppConfig {
     authentik: {
       memberGroup: required('AUTHENTIK_MEMBER_GROUP'),
       adminGroup: required('AUTHENTIK_ADMIN_GROUP'),
+    },
+    github: {
+      feedbackToken: optional('GITHUB_FEEDBACK_TOKEN'),
+      feedbackRepoOwner: optional('GITHUB_FEEDBACK_REPO_OWNER', 'Zaphiruz'),
+      feedbackRepoName: optional('GITHUB_FEEDBACK_REPO_NAME', 'velvet-scoop'),
     },
   };
 }

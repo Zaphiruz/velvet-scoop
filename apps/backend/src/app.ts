@@ -14,6 +14,8 @@ import { registerItemRoutes } from './routes/items.js';
 import { registerRequestRoutes } from './routes/requests.js';
 import { registerReviewRoutes } from './routes/reviews.js';
 import { registerMessageRoutes } from './routes/messages.js';
+import { registerFeedbackRoutes } from './routes/feedback.js';
+import type { GithubClient } from './services/github.js';
 
 export interface BuildAppOptions {
   logger?: boolean;
@@ -27,6 +29,7 @@ export interface BuildAppOptions {
   oidcClient: OidcClient;
   authentikGroups: RoleSyncConfig;
   frontendOrigin?: string;
+  githubClient?: GithubClient;
   /** Disable rate limiting (used in tests). */
   disableRateLimit?: boolean;
 }
@@ -103,6 +106,9 @@ export async function buildApp(options: BuildAppOptions): Promise<FastifyInstanc
   registerRequestRoutes(app, { prisma: options.prisma });
   registerReviewRoutes(app, { prisma: options.prisma });
   registerMessageRoutes(app, { prisma: options.prisma });
+  if (options.githubClient) {
+    registerFeedbackRoutes(app, { prisma: options.prisma, github: options.githubClient });
+  }
 
   return app;
 }

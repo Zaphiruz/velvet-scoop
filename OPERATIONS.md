@@ -36,6 +36,12 @@ Mirrors the dinner-club pattern documented in `/d/docs/mikrotik/CLAUDE.md` ("Add
      AUTHENTIK_ADMIN_GROUP='velvet-scoop-admins'
    ```
 
+   **Optional — feedback endpoint:** to enable `/api/feedback` (creates GitHub issues for user-submitted bug reports), add a fine-grained PAT with `issues:write` scope on `Zaphiruz/velvet-scoop`:
+   ```bash
+   vault kv patch secret/velvet-scoop GITHUB_FEEDBACK_TOKEN='github_pat_...'
+   ```
+   The route only registers when the token is present; without it, POSTs to `/api/feedback` 404.
+
 3. **Vault token** (LC3):
    ```bash
    bash /opt/vault/add-app-token.sh velvet-scoop velvet-scoop

@@ -93,6 +93,16 @@ export interface Message {
   recipient?: { id: string; displayName: string };
 }
 
+export interface FeedbackSubmission {
+  id: string;
+  issueNumber: number;
+  issueUrl: string;
+  title: string;
+  createdAt: string;
+  status: 'open' | 'done' | 'closed';
+  closedAt: string | null;
+}
+
 export interface ItemUpsertBody {
   name?: string;
   description?: string;
@@ -107,7 +117,7 @@ export interface ItemUpsertBody {
 export const api = createApi({
   reducerPath: 'api',
   baseQuery: createBaseQuery({ baseUrl: API_BASE, onUnauthorized: defaultOnUnauthorized }),
-  tagTypes: ['Me', 'Item', 'Request', 'Review', 'Message', 'User'],
+  tagTypes: ['Me', 'Item', 'Request', 'Review', 'Message', 'User', 'Feedback'],
   endpoints: (b) => ({
     getMe: b.query<Me, void>({
       query: () => ({ url: 'auth/me' }),
@@ -238,6 +248,20 @@ export const api = createApi({
       invalidatesTags: ['Message'],
     }),
 
+    submitFeedback: b.mutation<
+      { issueNumber: number; issueUrl: string },
+      { body: string; pageUrl?: string }
+    >({
+      query: (body) => ({ url: 'feedback', method: 'POST', body }),
+      transformResponse: (r: { data: { issueNumber: number; issueUrl: string } }) => r.data,
+      invalidatesTags: ['Feedback'],
+    }),
+    listMyFeedback: b.query<FeedbackSubmission[], void>({
+      query: () => ({ url: 'feedback/mine' }),
+      transformResponse: (r: { data: FeedbackSubmission[] }) => r.data,
+      providesTags: ['Feedback'],
+    }),
+
     listAdminUsers: b.query<UserSummary[], void>({
       query: () => ({ url: 'admin/users' }),
       transformResponse: (r: { data: UserSummary[] }) => r.data,
@@ -300,4 +324,6 @@ export const {
   useUnbanUserMutation,
   useMuteUserMutation,
   useUnmuteUserMutation,
+  useSubmitFeedbackMutation,
+  useListMyFeedbackQuery,
 } = api;
