@@ -1,0 +1,16 @@
+{
+  "extends": "../../tsconfig.base.json",
+  "compilerOptions": {
+    "tsBuildInfoFile": "./tsconfig.app.tsbuildinfo",
+    "module": "ESNext",
+    "moduleResolution": "bundler",
+    "lib": ["ES2022", "DOM", "DOM.Iterable"],
+    "jsx": "react-jsx",
+    "useDefineForClassFields": true,
+    "allowSyntheticDefaultImports": true,
+    "noEmit": true,
+    "types": ["vite/client"]
+  },
+  "include": ["src"],
+  "references": [{ "path": "../../packages/shared" }]
+}

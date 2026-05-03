@@ -11,6 +11,9 @@ dist/
 # Prisma
 apps/backend/prisma/migrations/dev.db*
 
+# TypeScript build cache
+*.tsbuildinfo
+
 # Claude Code (per-machine settings)
 .claude/settings.local.json
 # Logs
