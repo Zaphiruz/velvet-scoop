@@ -5,6 +5,7 @@ import { disconnectRedis, getRedis } from './redis.js';
 import { createSessionStore } from './auth/session.js';
 import { createOidcClient } from './auth/oidc.js';
 import { createGithubClient } from './services/github.js';
+import { createMailer } from './services/mailer.js';
 
 async function main() {
   const cfg = loadConfig();
@@ -26,6 +27,16 @@ async function main() {
       })
     : undefined;
 
+  const mailer = cfg.smtp.host
+    ? createMailer({
+        host: cfg.smtp.host,
+        port: cfg.smtp.port,
+        user: cfg.smtp.user,
+        pass: cfg.smtp.pass,
+        from: cfg.smtp.from,
+      })
+    : undefined;
+
   const app = await buildApp({
     logger: true,
     prisma,
@@ -42,6 +53,7 @@ async function main() {
     },
     frontendOrigin: cfg.frontendOrigin,
     ...(githubClient ? { githubClient } : {}),
+    ...(mailer ? { mailer } : {}),
   });
 
   let shuttingDown = false;

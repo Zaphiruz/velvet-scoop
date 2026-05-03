@@ -25,6 +25,13 @@ export interface AppConfig {
     feedbackRepoOwner: string;
     feedbackRepoName: string;
   };
+  smtp: {
+    host: string;
+    port: number;
+    user: string;
+    pass: string;
+    from: string;
+  };
 }
 
 function required(name: string): string {
@@ -71,6 +78,13 @@ export function loadConfig(): AppConfig {
       feedbackToken: optional('GITHUB_FEEDBACK_TOKEN'),
       feedbackRepoOwner: optional('GITHUB_FEEDBACK_REPO_OWNER', 'Zaphiruz'),
       feedbackRepoName: optional('GITHUB_FEEDBACK_REPO_NAME', 'velvet-scoop'),
+    },
+    smtp: {
+      host: optional('SMTP_HOST'),
+      port: Number(optional('SMTP_PORT', '587')),
+      user: optional('SMTP_USER'),
+      pass: optional('SMTP_PASS'),
+      from: optional('SMTP_FROM', 'Velvet Scoop <noreply@velvet-scoops.wispy-nook.casa>'),
     },
   };
 }

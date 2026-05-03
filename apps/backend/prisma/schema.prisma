@@ -31,6 +31,7 @@ model User {
   banned       Boolean   @default(false)
   bannedAt     DateTime? @map("banned_at")
   deletedAt    DateTime? @map("deleted_at")
+  isOwner      Boolean   @default(false) @map("is_owner")
   createdAt    DateTime  @default(now()) @map("created_at")
   updatedAt    DateTime  @updatedAt @map("updated_at")
 

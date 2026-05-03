@@ -1,9 +1,15 @@
 import type { FastifyInstance, FastifyReply, FastifyRequest } from 'fastify';
 import type { Prisma, PrismaClient } from '@prisma/client';
 import { writeAudit } from '../services/audit.js';
+import {
+  notifyOrderArrived,
+  notifyOrderStatusChanged,
+  type NotificationChannels,
+} from '../services/notifications.js';
 
 export interface RequestRouteDeps {
   prisma: PrismaClient;
+  channels?: NotificationChannels;
 }
 
 interface CreateBody {
@@ -107,6 +113,14 @@ export function registerRequestRoutes(app: FastifyInstance, deps: RequestRouteDe
       },
       include: requestInclude,
     });
+
+    if (deps.channels) {
+      // Best-effort — log but don't fail the request on notification errors.
+      void notifyOrderArrived(deps.prisma, deps.channels, created.id, (err, msg) =>
+        req.log.warn({ err }, msg),
+      );
+    }
+
     reply.code(201);
     return { data: created };
   });
@@ -137,6 +151,11 @@ export function registerRequestRoutes(app: FastifyInstance, deps: RequestRouteDe
         entityId: r.id,
         action: 'accept',
       });
+      if (deps.channels) {
+        void notifyOrderStatusChanged(deps.prisma, deps.channels, r.id, 'accepted', (err, msg) =>
+          req.log.warn({ err }, msg),
+        );
+      }
       return { data: updated };
     },
   );
@@ -161,6 +180,11 @@ export function registerRequestRoutes(app: FastifyInstance, deps: RequestRouteDe
         entityId: r.id,
         action: 'complete',
       });
+      if (deps.channels) {
+        void notifyOrderStatusChanged(deps.prisma, deps.channels, r.id, 'completed', (err, msg) =>
+          req.log.warn({ err }, msg),
+        );
+      }
       return { data: updated };
     },
   );
@@ -196,6 +220,11 @@ export function registerRequestRoutes(app: FastifyInstance, deps: RequestRouteDe
         action: 'cancel',
         metadata: { reason: req.body?.reason ?? null, byAdmin: isAdmin && !isOwner },
       });
+      if (deps.channels) {
+        void notifyOrderStatusChanged(deps.prisma, deps.channels, r.id, 'cancelled', (err, msg) =>
+          req.log.warn({ err }, msg),
+        );
+      }
       return { data: updated };
     },
   );

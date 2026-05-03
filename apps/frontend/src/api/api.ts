@@ -14,6 +14,7 @@ export interface Me {
   role: Role;
   muted: boolean;
   banned: boolean;
+  isOwner: boolean;
 }
 
 export interface UserSummary {
@@ -23,6 +24,7 @@ export interface UserSummary {
   role: Role;
   muted: boolean;
   banned: boolean;
+  isOwner: boolean;
   createdAt: string;
 }
 
@@ -267,6 +269,11 @@ export const api = createApi({
       transformResponse: (r: { data: UserSummary[] }) => r.data,
       providesTags: ['User'],
     }),
+    patchAdminUser: b.mutation<UserSummary, { id: string; isOwner?: boolean }>({
+      query: ({ id, ...patch }) => ({ url: `admin/users/${id}`, method: 'PATCH', body: patch }),
+      transformResponse: (r: { data: UserSummary }) => r.data,
+      invalidatesTags: ['User'],
+    }),
     banUser: b.mutation<UserSummary, { id: string; reason?: string }>({
       query: ({ id, reason }) => ({
         url: `admin/users/${id}/ban`,
@@ -320,6 +327,7 @@ export const {
   useSendMessageMutation,
   useMarkMessageReadMutation,
   useListAdminUsersQuery,
+  usePatchAdminUserMutation,
   useBanUserMutation,
   useUnbanUserMutation,
   useMuteUserMutation,

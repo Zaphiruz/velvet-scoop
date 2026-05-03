@@ -13,6 +13,7 @@ const userPublic = {
   role: true,
   muted: true,
   banned: true,
+  isOwner: true,
   createdAt: true,
 } as const;
 
@@ -50,6 +51,46 @@ export function registerUserRoutes(app: FastifyInstance, deps: UserRouteDeps): v
     });
     return { data: users };
   });
+
+  app.patch<{
+    Params: { id: string };
+    Body: { isOwner?: boolean };
+  }>(
+    '/api/admin/users/:id',
+    { preHandler: adminHook },
+    async (req, reply) => {
+      const target = await deps.prisma.user.findUnique({ where: { id: req.params.id } });
+      if (!target) return reply.code(404).send({ error: { code: 'NOT_FOUND', message: 'User not found' } });
+      const body = req.body ?? {};
+      const data: { isOwner?: boolean } = {};
+      if (body.isOwner !== undefined) {
+        if (typeof body.isOwner !== 'boolean') {
+          return reply.code(400).send({ error: { code: 'BAD_REQUEST', message: 'isOwner must be a boolean' } });
+        }
+        if (body.isOwner && target.role !== 'admin') {
+          return reply.code(409).send({
+            error: { code: 'CONFLICT', message: 'Only admins can be flagged as owners' },
+          });
+        }
+        data.isOwner = body.isOwner;
+      }
+      if (Object.keys(data).length === 0) {
+        return reply.code(400).send({ error: { code: 'BAD_REQUEST', message: 'no fields to update' } });
+      }
+      const updated = await deps.prisma.user.update({
+        where: { id: target.id },
+        data,
+        select: userPublic,
+      });
+      await writeAudit(deps.prisma, {
+        actorId: req.user!.id,
+        entityType: 'User',
+        entityId: target.id,
+        action: data.isOwner === true ? 'mark_owner' : 'unmark_owner',
+      });
+      return { data: updated };
+    },
+  );
 
   app.post<{ Params: { id: string }; Body: { reason?: string } }>(
     '/api/admin/users/:id/ban',

@@ -192,6 +192,7 @@ export function registerAuthRoutes(app: FastifyInstance, deps: AuthRouteDeps): v
         role: req.user.role,
         muted: req.user.muted,
         banned: req.user.banned,
+        isOwner: req.user.isOwner,
       },
     };
   });

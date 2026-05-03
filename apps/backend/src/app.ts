@@ -16,6 +16,8 @@ import { registerReviewRoutes } from './routes/reviews.js';
 import { registerMessageRoutes } from './routes/messages.js';
 import { registerFeedbackRoutes } from './routes/feedback.js';
 import type { GithubClient } from './services/github.js';
+import type { Mailer } from './services/mailer.js';
+import type { NotificationChannels } from './services/notifications.js';
 
 export interface BuildAppOptions {
   logger?: boolean;
@@ -30,6 +32,7 @@ export interface BuildAppOptions {
   authentikGroups: RoleSyncConfig;
   frontendOrigin?: string;
   githubClient?: GithubClient;
+  mailer?: Mailer;
   /** Disable rate limiting (used in tests). */
   disableRateLimit?: boolean;
 }
@@ -101,9 +104,11 @@ export async function buildApp(options: BuildAppOptions): Promise<FastifyInstanc
     rateLimitEnabled: !options.disableRateLimit,
   });
 
+  const channels: NotificationChannels = options.mailer ? { mailer: options.mailer } : {};
+
   registerUserRoutes(app, { prisma: options.prisma });
   registerItemRoutes(app, { prisma: options.prisma });
-  registerRequestRoutes(app, { prisma: options.prisma });
+  registerRequestRoutes(app, { prisma: options.prisma, channels });
   registerReviewRoutes(app, { prisma: options.prisma });
   registerMessageRoutes(app, { prisma: options.prisma });
   if (options.githubClient) {
