@@ -1,0 +1,42 @@
+name: Deploy
+
+on:
+  push:
+    branches:
+      - main
+
+jobs:
+  deploy:
+    runs-on: self-hosted
+    steps:
+      - name: Pull latest code
+        working-directory: /opt/velvet-scoop
+        run: git pull
+
+      - name: Build images
+        working-directory: /opt/velvet-scoop
+        run: |
+          set -e
+          for i in 1 2 3; do
+            if docker compose -f docker-compose.prod.yml build backend frontend; then
+              exit 0
+            fi
+            echo "Attempt $i failed, retrying..."
+            sleep 10
+          done
+          echo "Build failed after 3 attempts."
+          exit 1
+
+      - name: Deploy
+        working-directory: /opt/velvet-scoop
+        run: docker compose -f docker-compose.prod.yml up -d
+
+      - name: Run migrations
+        working-directory: /opt/velvet-scoop
+        run: |
+          source .env
+          DB_URL=$(curl -sf -H "X-Vault-Token: $VAULT_TOKEN" "$VAULT_ADDR/v1/secret/data/velvet-scoop" \
+            | python3 -c "import sys,json; print(json.load(sys.stdin)['data']['data']['DATABASE_URL'])")
+          docker exec -e DATABASE_URL="$DB_URL" velvet-scoop-backend-1 \
+            apps/backend/node_modules/.bin/prisma migrate deploy \
+            --schema apps/backend/prisma/schema.prisma

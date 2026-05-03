@@ -1,0 +1,12 @@
+**/node_modules
+**/dist
+**/.tsbuildinfo
+**/tsconfig.*.tsbuildinfo
+.git
+.github
+.vscode
+.claude
+.env
+.env.*
+!.env.example
+*.log
