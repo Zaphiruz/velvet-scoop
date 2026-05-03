@@ -1,87 +1,40 @@
-/// <reference path="./types/global.d.ts" />
+import Fastify, { type FastifyInstance } from 'fastify';
+import cookie from '@fastify/cookie';
+import cors from '@fastify/cors';
+import type { PrismaClient } from '@prisma/client';
+import { makeRequireAdmin, makeRequireAuth } from './auth/middleware.js';
+import { registerUserRoutes } from './routes/users.js';
+import { registerItemRoutes } from './routes/items.js';
+import { registerRequestRoutes } from './routes/requests.js';
+import { registerReviewRoutes } from './routes/reviews.js';
+import { registerMessageRoutes } from './routes/messages.js';
 
-import express from 'express';
-import cookieParser from 'cookie-parser';
-import dotenv from 'dotenv';
-import helmet from "helmet";
-import rateLimit from 'express-rate-limit';
-import mongoStore from 'rate-limit-mongo';
-import session from 'express-session';
-import connctMongo from 'connect-mongo';
-import compression from 'compression';
-import connectDB from './services/db';
-import userRoutes from './routes/user';
-import requestRoutes from './routes/request';
-import messageRoutes from './routes/message';
-import adminUserRoutes from './routes/adminUser';
-import reviewRoutes from './routes/review';
-import itemRoutes from './routes/item';
+export interface BuildAppOptions {
+  logger?: boolean;
+  prisma: PrismaClient;
+  cookieSecret?: string;
+  frontendOrigin?: string;
+}
 
-dotenv.config();
+export async function buildApp(options: BuildAppOptions): Promise<FastifyInstance> {
+  const app = Fastify({ logger: options.logger ?? false });
 
-const app = express();
-const PORT = process.env.PORT || 3000;
-app.use(express.json({ limit: '5mb' }));
-app.use(cookieParser(process.env.COOKIE_SECRET));
-console.log('has secret?', !!process.env.COOKIE_SECRET);
-app.set('trust proxy', 1)
-app.use(session({
-  secret: process.env.SESSION_SECRET || 'changeme',
-  resave: false,
-  saveUninitialized: false,
-  name: 'sessId',
-  cookie: {
-    maxAge: 24 * 60 * 60 * 1000, // 1 day
-    httpOnly: true,
-    secure: process.env.NODE_ENV === 'production',
-    sameSite: 'strict',
-    domain: process.env.DOMAIN,
-  },
-  store: connctMongo.create({ mongoUrl: process.env.MONGO_URI || '' })
-}));
-app.use(helmet());
-app.use(rateLimit({
-  windowMs: 1000,
-  limit: 25,
-  standardHeaders: 'draft-8',
-  legacyHeaders: false,
-  ipv6Subnet: 56,
-  store: new mongoStore({
-    uri: process.env.MONGO_URI || '',
-    collectionName: 'rateLimits',
-    expireTimeMs: 2000,
-    errorHandler: console.error
-  })
-}));
-app.use(compression({
-  filter: (req, res) => {
-    if (process.env.NODE_ENV !== 'production') {
-      return false;
-    }
-
-    if (req.headers['x-no-compression']) {
-      return false;
-    }
-
-    return compression.filter(req, res);
-  }
-}));
-app.use('/api/users', userRoutes);
-app.use('/api/requests', requestRoutes);
-app.use('/api/messages', messageRoutes);
-app.use('/api/admin/users', adminUserRoutes);
-app.use('/api/reviews', reviewRoutes);
-app.use('/api/items', itemRoutes);
-
-const MONGO_URI = process.env.MONGO_URI || '';
-connectDB(MONGO_URI)
-  .then(() => {
-    app.listen(PORT, () => {
-      console.log(`Server running on port ${PORT}`);
-    });
-  })
-  .catch((err) => {
-    console.error('Failed to start server:', err);
+  await app.register(cookie, { secret: options.cookieSecret ?? 'dev-only-secret-change-me' });
+  await app.register(cors, {
+    origin: options.frontendOrigin ?? 'http://localhost:5173',
+    credentials: true,
   });
 
-export default app;
+  app.decorate('requireAuth', makeRequireAuth({ prisma: options.prisma }));
+  app.decorate('requireAdmin', makeRequireAdmin());
+
+  app.get('/health', async () => ({ status: 'ok' }));
+
+  registerUserRoutes(app, { prisma: options.prisma });
+  registerItemRoutes(app, { prisma: options.prisma });
+  registerRequestRoutes(app, { prisma: options.prisma });
+  registerReviewRoutes(app, { prisma: options.prisma });
+  registerMessageRoutes(app, { prisma: options.prisma });
+
+  return app;
+}
