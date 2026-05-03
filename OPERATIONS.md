@@ -27,11 +27,11 @@ Mirrors the dinner-club pattern documented in `/d/docs/mikrotik/CLAUDE.md` ("Add
      REDIS_URL='redis://redis:6379' \
      SESSION_SECRET='<openssl rand -base64 48>' \
      SESSION_COOKIE_SECURE='true' \
-     FRONTEND_ORIGIN='https://velvet-scoop.wispy-nook.casa' \
+     FRONTEND_ORIGIN='https://velvet-scoops.wispy-nook.casa' \
      AUTHENTIK_ISSUER_URL='https://authentik.wispy-nook.casa/application/o/velvet-scoops/' \
      AUTHENTIK_CLIENT_ID='<from authentik provider>' \
      AUTHENTIK_CLIENT_SECRET='<from authentik provider>' \
-     AUTHENTIK_REDIRECT_URI='https://velvet-scoop.wispy-nook.casa/api/auth/callback' \
+     AUTHENTIK_REDIRECT_URI='https://velvet-scoops.wispy-nook.casa/api/auth/callback' \
      AUTHENTIK_MEMBER_GROUP='velvet-scoop-users' \
      AUTHENTIK_ADMIN_GROUP='velvet-scoop-admins'
    ```
@@ -42,7 +42,7 @@ Mirrors the dinner-club pattern documented in `/d/docs/mikrotik/CLAUDE.md` ("Add
    ```
    Copy the printed token to S2.
 
-4. **Authentik provider**: OAuth2/OIDC, Confidential client, redirect URI exactly `https://velvet-scoop.wispy-nook.casa/api/auth/callback`. Bind groups `velvet-scoop-users` and `velvet-scoop-admins` to the application.
+4. **Authentik provider**: OAuth2/OIDC, Confidential client, redirect URI exactly `https://velvet-scoops.wispy-nook.casa/api/auth/callback`. Bind groups `velvet-scoop-users` and `velvet-scoop-admins` to the application.
 
 5. **Clone repo on S2** (as `runner` user):
    ```bash
@@ -56,13 +56,13 @@ Mirrors the dinner-club pattern documented in `/d/docs/mikrotik/CLAUDE.md` ("Add
 
 6. **GitHub Actions self-hosted runner**: register at `/opt/actions-runner-velvet-scoop` per the standard pattern in `CLAUDE.md`. Service name will be `actions.runner.Zaphiruz-velvet-scoop.S2`.
 
-7. **Cloudflare Tunnel**: add public hostname `velvet-scoop.wispy-nook.casa` → `https://localhost:443`, Origin Server Name `velvet-scoop.wispy-nook.casa`.
+7. **Cloudflare Tunnel**: add public hostname `velvet-scoops.wispy-nook.casa` → `https://localhost:443`, Origin Server Name `velvet-scoops.wispy-nook.casa`.
 
 8. **nginx on LC2**: add server block to `/etc/nginx/sites-enabled/wispy-nook.casa`:
    ```nginx
    server {
      listen 443 ssl;
-     server_name velvet-scoop.wispy-nook.casa;
+     server_name velvet-scoops.wispy-nook.casa;
      ssl_certificate     /etc/nginx/certs/cloudflare-origin.pem;
      ssl_certificate_key /etc/nginx/certs/cloudflare-origin.key;
      location / {
