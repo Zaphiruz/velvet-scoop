@@ -9,6 +9,7 @@
     "start": "node dist/apps/backend/src/server.js",
     "test": "vitest run",
     "test:watch": "vitest",
+    "test:db:setup": "node --input-type=module -e \"import { execSync } from 'node:child_process'; const URL = 'postgres://velvetscoop:velvetscoop@localhost:5433/velvetscoop_test'; try { execSync('docker exec website-v2-postgres-1 psql -U velvetscoop -d velvetscoop -c \\\"CREATE DATABASE velvetscoop_test\\\"', { stdio: 'inherit' }); } catch {} execSync('npx prisma migrate deploy', { stdio: 'inherit', env: { ...process.env, DATABASE_URL: URL } });\"",
     "typecheck": "tsc -p tsconfig.json --noEmit",
     "prisma": "dotenv -e ../../.env -- prisma"
   },
