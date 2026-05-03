@@ -1,7 +1,7 @@
 import { buildApp } from './app.js';
 import { loadConfig } from './config.js';
-import { getPrisma } from './db.js';
-import { getRedis } from './redis.js';
+import { disconnectPrisma, getPrisma } from './db.js';
+import { disconnectRedis, getRedis } from './redis.js';
 import { createSessionStore } from './auth/session.js';
 import { createOidcClient } from './auth/oidc.js';
 
@@ -20,6 +20,7 @@ async function main() {
   const app = await buildApp({
     logger: true,
     prisma,
+    redis,
     sessionStore,
     sessionCookieName: cfg.session.cookieName,
     sessionSecret: cfg.session.secret,
@@ -32,6 +33,25 @@ async function main() {
     },
     frontendOrigin: cfg.frontendOrigin,
   });
+
+  let shuttingDown = false;
+  async function shutdown(signal: string) {
+    if (shuttingDown) return;
+    shuttingDown = true;
+    app.log.info({ signal }, 'shutdown signal received, draining');
+    try {
+      await app.close();
+      await disconnectRedis();
+      await disconnectPrisma();
+      app.log.info('shutdown complete');
+      process.exit(0);
+    } catch (err) {
+      app.log.error({ err }, 'shutdown failed');
+      process.exit(1);
+    }
+  }
+  process.on('SIGTERM', () => void shutdown('SIGTERM'));
+  process.on('SIGINT', () => void shutdown('SIGINT'));
 
   await app.listen({ port: cfg.port, host: '0.0.0.0' });
 }

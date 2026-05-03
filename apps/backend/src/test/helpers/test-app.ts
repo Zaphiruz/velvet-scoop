@@ -61,6 +61,7 @@ export async function createTestApp(): Promise<TestAppHandle> {
 
   const app = await buildApp({
     prisma,
+    redis,
     sessionStore,
     sessionCookieName: TEST_COOKIE_NAME,
     sessionSecret: 'test-secret',
@@ -69,6 +70,7 @@ export async function createTestApp(): Promise<TestAppHandle> {
     oidcClient: fakeOidc,
     authentikGroups: { memberGroup: 'velvet-scoop-users', adminGroup: 'velvet-scoop-admins' },
     frontendOrigin: 'http://localhost:5180',
+    disableRateLimit: true,
   });
   await app.ready();
 

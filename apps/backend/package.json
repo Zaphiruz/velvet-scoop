@@ -19,6 +19,7 @@
   "dependencies": {
     "@fastify/cookie": "^11.0.1",
     "@fastify/cors": "^10.0.1",
+    "@fastify/rate-limit": "^10.2.1",
     "@prisma/client": "^5.22.0",
     "@velvet-scoop/shared": "workspace:*",
     "fastify": "^5.1.0",

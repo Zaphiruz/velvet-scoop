@@ -59,7 +59,15 @@ export function createOidcClient(config: OidcConfig): OidcClient {
   let clientPromise: Promise<InnerClient> | undefined;
 
   function getClient(): Promise<InnerClient> {
-    if (!clientPromise) clientPromise = buildClient(config);
+    if (!clientPromise) {
+      clientPromise = buildClient(config);
+      // Clear the cached promise on rejection so the next call retries
+      // discovery. Without this, a single Authentik blip during boot
+      // poisons the OIDC client until the process restarts.
+      clientPromise.catch(() => {
+        clientPromise = undefined;
+      });
+    }
     return clientPromise;
   }
 

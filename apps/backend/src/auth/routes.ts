@@ -13,6 +13,7 @@ export interface AuthRouteDeps {
   authentikGroups: RoleSyncConfig;
   frontendOrigin: string;
   cookieSecure: boolean;
+  rateLimitEnabled?: boolean;
 }
 
 interface PkceCookiePayload {
@@ -46,7 +47,14 @@ function decodePkce(value: string): PkceCookiePayload | null {
 }
 
 export function registerAuthRoutes(app: FastifyInstance, deps: AuthRouteDeps): void {
-  app.get('/api/auth/login', async (_req, reply) => {
+  // Stricter rate limit on the unauth'd OIDC entrypoints — login + callback
+  // are the most attractive targets for hammering with state-cookie probes
+  // and token-exchange spam.
+  const authRouteConfig = deps.rateLimitEnabled
+    ? { config: { rateLimit: { max: 10, timeWindow: '1 minute' } } }
+    : {};
+
+  app.get('/api/auth/login', authRouteConfig, async (_req, reply) => {
     const artifacts = await deps.oidcClient.authorizationUrl();
     const cookieValue = encodePkce({
       state: artifacts.state,
@@ -66,6 +74,7 @@ export function registerAuthRoutes(app: FastifyInstance, deps: AuthRouteDeps): v
 
   app.get<{ Querystring: { code?: string; state?: string; error?: string } }>(
     '/api/auth/callback',
+    authRouteConfig,
     async (req, reply) => {
       const { code, state, error } = req.query;
       if (error) {
