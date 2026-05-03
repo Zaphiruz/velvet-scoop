@@ -16,6 +16,10 @@ export interface AppConfig {
     clientSecret: string;
     redirectUri: string;
   };
+  authentik: {
+    memberGroup: string;
+    adminGroup: string;
+  };
 }
 
 function required(name: string): string {
@@ -49,10 +53,14 @@ export function loadConfig(): AppConfig {
       ttlSeconds: Number(optional('SESSION_TTL_SECONDS', String(7 * 24 * 60 * 60))),
     },
     oidc: {
-      issuer: optional('AUTHENTIK_ISSUER_URL'),
-      clientId: optional('AUTHENTIK_CLIENT_ID'),
-      clientSecret: optional('AUTHENTIK_CLIENT_SECRET'),
-      redirectUri: optional('AUTHENTIK_REDIRECT_URI'),
+      issuer: required('AUTHENTIK_ISSUER_URL'),
+      clientId: required('AUTHENTIK_CLIENT_ID'),
+      clientSecret: required('AUTHENTIK_CLIENT_SECRET'),
+      redirectUri: required('AUTHENTIK_REDIRECT_URI'),
+    },
+    authentik: {
+      memberGroup: required('AUTHENTIK_MEMBER_GROUP'),
+      adminGroup: required('AUTHENTIK_ADMIN_GROUP'),
     },
   };
 }

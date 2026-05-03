@@ -17,10 +17,6 @@ const userPublic = {
 } as const;
 
 export function registerUserRoutes(app: FastifyInstance, deps: UserRouteDeps): void {
-  app.get('/api/users/me', { preHandler: app.requireAuth }, async (req) => {
-    return { data: req.user };
-  });
-
   app.patch<{ Body: { displayName?: string } }>(
     '/api/users/me',
     { preHandler: app.requireAuth },
