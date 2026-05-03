@@ -1,17 +1,26 @@
 import { NavLink } from 'react-router-dom';
-import { Home, IceCream, User } from 'lucide-react';
+import { Home, IceCream, Shield, User } from 'lucide-react';
 import { cn } from '../lib/cn';
+import { useGetMeQuery } from '../api/api';
 
-const tabs = [
+const baseTabs = [
   { to: '/', label: 'Home', icon: Home },
   { to: '/items', label: 'Flavors', icon: IceCream },
   { to: '/profile', label: 'Profile', icon: User },
 ] as const;
 
+const adminTab = { to: '/admin', label: 'Admin', icon: Shield } as const;
+
 export function BottomNav() {
+  const { data: me } = useGetMeQuery();
+  const tabs = me?.role === 'admin' ? [...baseTabs, adminTab] : baseTabs;
+
   return (
     <nav className="sticky bottom-0 border-t border-slate-800 bg-slate-950/95 backdrop-blur">
-      <ul className="mx-auto grid max-w-screen-sm grid-cols-3">
+      <ul
+        className="mx-auto grid max-w-screen-sm"
+        style={{ gridTemplateColumns: `repeat(${tabs.length}, minmax(0, 1fr))` }}
+      >
         {tabs.map(({ to, label, icon: Icon }) => (
           <li key={to}>
             <NavLink

@@ -16,6 +16,16 @@ export interface Me {
   banned: boolean;
 }
 
+export interface UserSummary {
+  id: string;
+  email: string;
+  displayName: string;
+  role: Role;
+  muted: boolean;
+  banned: boolean;
+  createdAt: string;
+}
+
 export interface Item {
   id: string;
   name: string;
@@ -83,10 +93,21 @@ export interface Message {
   recipient?: { id: string; displayName: string };
 }
 
+export interface ItemUpsertBody {
+  name?: string;
+  description?: string;
+  nutritionalFacts?: string;
+  ingredients?: string;
+  allergyInformation?: string;
+  isSeasonal?: boolean;
+  cost?: number | string;
+  active?: boolean;
+}
+
 export const api = createApi({
   reducerPath: 'api',
   baseQuery: createBaseQuery({ baseUrl: API_BASE, onUnauthorized: defaultOnUnauthorized }),
-  tagTypes: ['Me', 'Item', 'Request', 'Review', 'Message'],
+  tagTypes: ['Me', 'Item', 'Request', 'Review', 'Message', 'User'],
   endpoints: (b) => ({
     getMe: b.query<Me, void>({
       query: () => ({ url: 'auth/me' }),
@@ -99,8 +120,11 @@ export const api = createApi({
       invalidatesTags: ['Me'],
     }),
 
-    listItems: b.query<Item[], void>({
-      query: () => ({ url: 'items' }),
+    listItems: b.query<Item[], { includeInactive?: boolean } | void>({
+      query: (params) => {
+        const qs = params?.includeInactive ? '?include_inactive=1' : '';
+        return { url: `items${qs}` };
+      },
       transformResponse: (r: { data: Item[] }) => r.data,
       providesTags: ['Item'],
     }),
@@ -108,6 +132,21 @@ export const api = createApi({
       query: (id) => ({ url: `items/${id}` }),
       transformResponse: (r: { data: Item }) => r.data,
       providesTags: (_r, _e, id) => [{ type: 'Item', id }],
+    }),
+    createItem: b.mutation<Item, ItemUpsertBody>({
+      query: (body) => ({ url: 'items', method: 'POST', body }),
+      transformResponse: (r: { data: Item }) => r.data,
+      invalidatesTags: ['Item'],
+    }),
+    updateItem: b.mutation<Item, { id: string; patch: ItemUpsertBody }>({
+      query: ({ id, patch }) => ({ url: `items/${id}`, method: 'PATCH', body: patch }),
+      transformResponse: (r: { data: Item }) => r.data,
+      invalidatesTags: (_r, _e, a) => [{ type: 'Item', id: a.id }, 'Item'],
+    }),
+    deleteItem: b.mutation<{ ok: boolean }, string>({
+      query: (id) => ({ url: `items/${id}`, method: 'DELETE' }),
+      transformResponse: (r: { data: { ok: boolean } }) => r.data,
+      invalidatesTags: ['Item'],
     }),
 
     listRequests: b.query<OrderRequest[], void>({
@@ -134,6 +173,16 @@ export const api = createApi({
       transformResponse: (r: { data: OrderRequest }) => r.data,
       invalidatesTags: ['Request'],
     }),
+    acceptRequest: b.mutation<OrderRequest, string>({
+      query: (id) => ({ url: `requests/${id}/accept`, method: 'POST' }),
+      transformResponse: (r: { data: OrderRequest }) => r.data,
+      invalidatesTags: (_r, _e, id) => [{ type: 'Request', id }, 'Request'],
+    }),
+    completeRequest: b.mutation<OrderRequest, string>({
+      query: (id) => ({ url: `requests/${id}/complete`, method: 'POST' }),
+      transformResponse: (r: { data: OrderRequest }) => r.data,
+      invalidatesTags: (_r, _e, id) => [{ type: 'Request', id }, 'Request'],
+    }),
     cancelRequest: b.mutation<OrderRequest, { id: string; reason?: string }>({
       query: ({ id, reason }) => ({
         url: `requests/${id}/cancel`,
@@ -144,8 +193,11 @@ export const api = createApi({
       invalidatesTags: (_r, _e, a) => [{ type: 'Request', id: a.id }, 'Request'],
     }),
 
-    listReviews: b.query<Review[], void>({
-      query: () => ({ url: 'reviews' }),
+    listReviews: b.query<Review[], { includeUnapproved?: boolean } | void>({
+      query: (params) => {
+        const qs = params?.includeUnapproved ? '?include_unapproved=1' : '';
+        return { url: `reviews${qs}` };
+      },
       transformResponse: (r: { data: Review[] }) => r.data,
       providesTags: ['Review'],
     }),
@@ -153,6 +205,16 @@ export const api = createApi({
       query: (body) => ({ url: 'reviews', method: 'POST', body }),
       transformResponse: (r: { data: Review }) => r.data,
       invalidatesTags: ['Review', 'Request'],
+    }),
+    approveReview: b.mutation<Review, string>({
+      query: (id) => ({ url: `admin/reviews/${id}/approve`, method: 'POST' }),
+      transformResponse: (r: { data: Review }) => r.data,
+      invalidatesTags: ['Review'],
+    }),
+    deleteReview: b.mutation<{ ok: boolean }, string>({
+      query: (id) => ({ url: `admin/reviews/${id}`, method: 'DELETE' }),
+      transformResponse: (r: { data: { ok: boolean } }) => r.data,
+      invalidatesTags: ['Review'],
     }),
 
     listMessages: b.query<Message[], { box?: 'inbox' | 'sent' } | void>({
@@ -175,6 +237,40 @@ export const api = createApi({
       transformResponse: (r: { data: Message }) => r.data,
       invalidatesTags: ['Message'],
     }),
+
+    listAdminUsers: b.query<UserSummary[], void>({
+      query: () => ({ url: 'admin/users' }),
+      transformResponse: (r: { data: UserSummary[] }) => r.data,
+      providesTags: ['User'],
+    }),
+    banUser: b.mutation<UserSummary, { id: string; reason?: string }>({
+      query: ({ id, reason }) => ({
+        url: `admin/users/${id}/ban`,
+        method: 'POST',
+        ...(reason ? { body: { reason } } : {}),
+      }),
+      transformResponse: (r: { data: UserSummary }) => r.data,
+      invalidatesTags: ['User'],
+    }),
+    unbanUser: b.mutation<UserSummary, string>({
+      query: (id) => ({ url: `admin/users/${id}/unban`, method: 'POST' }),
+      transformResponse: (r: { data: UserSummary }) => r.data,
+      invalidatesTags: ['User'],
+    }),
+    muteUser: b.mutation<UserSummary, { id: string; reason?: string }>({
+      query: ({ id, reason }) => ({
+        url: `admin/users/${id}/mute`,
+        method: 'POST',
+        ...(reason ? { body: { reason } } : {}),
+      }),
+      transformResponse: (r: { data: UserSummary }) => r.data,
+      invalidatesTags: ['User'],
+    }),
+    unmuteUser: b.mutation<UserSummary, string>({
+      query: (id) => ({ url: `admin/users/${id}/unmute`, method: 'POST' }),
+      transformResponse: (r: { data: UserSummary }) => r.data,
+      invalidatesTags: ['User'],
+    }),
   }),
 });
 
@@ -183,13 +279,25 @@ export const {
   useLogoutMutation,
   useListItemsQuery,
   useGetItemQuery,
+  useCreateItemMutation,
+  useUpdateItemMutation,
+  useDeleteItemMutation,
   useListRequestsQuery,
   useGetRequestQuery,
   useCreateRequestMutation,
+  useAcceptRequestMutation,
+  useCompleteRequestMutation,
   useCancelRequestMutation,
   useListReviewsQuery,
   useCreateReviewMutation,
+  useApproveReviewMutation,
+  useDeleteReviewMutation,
   useListMessagesQuery,
   useSendMessageMutation,
   useMarkMessageReadMutation,
+  useListAdminUsersQuery,
+  useBanUserMutation,
+  useUnbanUserMutation,
+  useMuteUserMutation,
+  useUnmuteUserMutation,
 } = api;
