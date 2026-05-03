@@ -1,0 +1,154 @@
+generator client {
+  provider      = "prisma-client-js"
+  binaryTargets = ["native", "linux-musl-openssl-3.0.x"]
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum UserRole {
+  member
+  admin
+}
+
+enum RequestStatus {
+  pending
+  accepted
+  cancelled
+  completed
+}
+
+model User {
+  id           String    @id @default(uuid()) @db.Uuid
+  authentikSub String?   @unique @map("authentik_sub")
+  email        String
+  displayName  String    @map("display_name")
+  role         UserRole  @default(member)
+  muted        Boolean   @default(false)
+  mutedAt      DateTime? @map("muted_at")
+  banned       Boolean   @default(false)
+  bannedAt     DateTime? @map("banned_at")
+  deletedAt    DateTime? @map("deleted_at")
+  createdAt    DateTime  @default(now()) @map("created_at")
+  updatedAt    DateTime  @updatedAt @map("updated_at")
+
+  requests         Request[]
+  reviews          Review[]
+  messagesSent     Message[]  @relation("MessageSender")
+  messagesReceived Message[]  @relation("MessageRecipient")
+  auditEntries     AuditLog[]
+
+  @@map("users")
+}
+
+model Item {
+  id                 String    @id @default(uuid()) @db.Uuid
+  name               String
+  description        String
+  nutritionalFacts   String    @default("") @map("nutritional_facts")
+  ingredients        String    @default("")
+  allergyInformation String    @default("") @map("allergy_information")
+  isSeasonal         Boolean   @default(false) @map("is_seasonal")
+  cost               Decimal   @db.Decimal(10, 2)
+  active             Boolean   @default(true)
+  deletedAt          DateTime? @map("deleted_at")
+  createdAt          DateTime  @default(now()) @map("created_at")
+  updatedAt          DateTime  @updatedAt @map("updated_at")
+
+  requestItems RequestItem[]
+
+  @@map("items")
+}
+
+model Request {
+  id           String        @id @default(uuid()) @db.Uuid
+  userId       String        @map("user_id") @db.Uuid
+  total        Decimal       @db.Decimal(10, 2)
+  scheduledFor DateTime      @map("scheduled_for")
+  contactName  String        @map("contact_name")
+  contactEmail String        @map("contact_email")
+  contactNotes String?       @map("contact_notes")
+  status       RequestStatus @default(pending)
+  acceptedAt   DateTime?     @map("accepted_at")
+  completedAt  DateTime?     @map("completed_at")
+  cancelledAt  DateTime?     @map("cancelled_at")
+  deletedAt    DateTime?     @map("deleted_at")
+  createdAt    DateTime      @default(now()) @map("created_at")
+  updatedAt    DateTime      @updatedAt @map("updated_at")
+
+  user    User          @relation(fields: [userId], references: [id])
+  items   RequestItem[]
+  reviews Review[]
+
+  @@index([userId])
+  @@index([status])
+  @@map("requests")
+}
+
+model RequestItem {
+  requestId String @map("request_id") @db.Uuid
+  itemId    String @map("item_id") @db.Uuid
+  quantity  Int
+
+  request Request @relation(fields: [requestId], references: [id], onDelete: Cascade)
+  item    Item    @relation(fields: [itemId], references: [id])
+
+  @@id([requestId, itemId])
+  @@map("request_items")
+}
+
+model Review {
+  id         String    @id @default(uuid()) @db.Uuid
+  userId     String    @map("user_id") @db.Uuid
+  requestId  String    @map("request_id") @db.Uuid
+  rating     Int
+  comment    String
+  approved   Boolean   @default(false)
+  approvedAt DateTime? @map("approved_at")
+  deletedAt  DateTime? @map("deleted_at")
+  createdAt  DateTime  @default(now()) @map("created_at")
+  updatedAt  DateTime  @updatedAt @map("updated_at")
+
+  user    User    @relation(fields: [userId], references: [id])
+  request Request @relation(fields: [requestId], references: [id])
+
+  @@index([userId])
+  @@index([requestId])
+  @@map("reviews")
+}
+
+model Message {
+  id          String    @id @default(uuid()) @db.Uuid
+  senderId    String    @map("sender_id") @db.Uuid
+  recipientId String    @map("recipient_id") @db.Uuid
+  content     String
+  readAt      DateTime? @map("read_at")
+  deletedAt   DateTime? @map("deleted_at")
+  createdAt   DateTime  @default(now()) @map("created_at")
+
+  sender    User @relation("MessageSender", fields: [senderId], references: [id])
+  recipient User @relation("MessageRecipient", fields: [recipientId], references: [id])
+
+  @@index([senderId])
+  @@index([recipientId])
+  @@map("messages")
+}
+
+model AuditLog {
+  id         String   @id @default(uuid()) @db.Uuid
+  actorId    String?  @map("actor_id") @db.Uuid
+  entityType String   @map("entity_type")
+  entityId   String   @map("entity_id") @db.Uuid
+  action     String
+  metadata   Json?
+  createdAt  DateTime @default(now()) @map("created_at")
+
+  actor User? @relation(fields: [actorId], references: [id])
+
+  @@index([entityType, entityId])
+  @@index([actorId])
+  @@index([createdAt])
+  @@map("audit_logs")
+}
