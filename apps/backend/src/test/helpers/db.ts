@@ -25,6 +25,7 @@ export async function disconnectTestPrisma(): Promise<void> {
 }
 
 const ALL_TABLES = [
+  'push_subscriptions',
   'feedback_submissions',
   'audit_logs',
   'reviews',

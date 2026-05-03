@@ -15,9 +15,11 @@ import { registerRequestRoutes } from './routes/requests.js';
 import { registerReviewRoutes } from './routes/reviews.js';
 import { registerMessageRoutes } from './routes/messages.js';
 import { registerFeedbackRoutes } from './routes/feedback.js';
+import { registerPushRoutes } from './routes/push.js';
 import type { GithubClient } from './services/github.js';
 import type { Mailer } from './services/mailer.js';
 import type { NotificationChannels } from './services/notifications.js';
+import type { PushService } from './services/push.js';
 
 export interface BuildAppOptions {
   logger?: boolean;
@@ -33,6 +35,7 @@ export interface BuildAppOptions {
   frontendOrigin?: string;
   githubClient?: GithubClient;
   mailer?: Mailer;
+  pushService?: PushService;
   /** Disable rate limiting (used in tests). */
   disableRateLimit?: boolean;
 }
@@ -104,7 +107,10 @@ export async function buildApp(options: BuildAppOptions): Promise<FastifyInstanc
     rateLimitEnabled: !options.disableRateLimit,
   });
 
-  const channels: NotificationChannels = options.mailer ? { mailer: options.mailer } : {};
+  const channels: NotificationChannels = {
+    ...(options.mailer ? { mailer: options.mailer } : {}),
+    ...(options.pushService ? { push: options.pushService } : {}),
+  };
 
   registerUserRoutes(app, { prisma: options.prisma });
   registerItemRoutes(app, { prisma: options.prisma });
@@ -114,6 +120,10 @@ export async function buildApp(options: BuildAppOptions): Promise<FastifyInstanc
   if (options.githubClient) {
     registerFeedbackRoutes(app, { prisma: options.prisma, github: options.githubClient });
   }
+  registerPushRoutes(app, {
+    prisma: options.prisma,
+    ...(options.pushService ? { vapidPublicKey: options.pushService.publicKey } : {}),
+  });
 
   return app;
 }

@@ -6,6 +6,7 @@ import { createSessionStore } from './auth/session.js';
 import { createOidcClient } from './auth/oidc.js';
 import { createGithubClient } from './services/github.js';
 import { createMailer } from './services/mailer.js';
+import { createPushService } from './services/push.js';
 
 async function main() {
   const cfg = loadConfig();
@@ -37,6 +38,15 @@ async function main() {
       })
     : undefined;
 
+  const pushService =
+    cfg.vapid.publicKey && cfg.vapid.privateKey
+      ? createPushService(prisma, {
+          publicKey: cfg.vapid.publicKey,
+          privateKey: cfg.vapid.privateKey,
+          subject: cfg.vapid.subject,
+        })
+      : undefined;
+
   const app = await buildApp({
     logger: true,
     prisma,
@@ -54,6 +64,7 @@ async function main() {
     frontendOrigin: cfg.frontendOrigin,
     ...(githubClient ? { githubClient } : {}),
     ...(mailer ? { mailer } : {}),
+    ...(pushService ? { pushService } : {}),
   });
 
   let shuttingDown = false;

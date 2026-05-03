@@ -1,5 +1,6 @@
 import { useGetMeQuery, useLogoutMutation } from '../../api/api';
 import { FeedbackForm } from './FeedbackForm';
+import { NotificationsSection } from './NotificationsSection';
 
 export function ProfilePage() {
   const { data: me, isLoading } = useGetMeQuery();
@@ -47,6 +48,7 @@ export function ProfilePage() {
         {isLoggingOut ? 'Signing out…' : 'Sign out'}
       </button>
 
+      <NotificationsSection />
       <FeedbackForm />
     </div>
   );

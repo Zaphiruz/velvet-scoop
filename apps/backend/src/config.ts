@@ -32,6 +32,11 @@ export interface AppConfig {
     pass: string;
     from: string;
   };
+  vapid: {
+    publicKey: string;
+    privateKey: string;
+    subject: string;
+  };
 }
 
 function required(name: string): string {
@@ -85,6 +90,11 @@ export function loadConfig(): AppConfig {
       user: optional('SMTP_USER'),
       pass: optional('SMTP_PASS'),
       from: optional('SMTP_FROM', 'Velvet Scoop <noreply@velvet-scoops.wispy-nook.casa>'),
+    },
+    vapid: {
+      publicKey: optional('VAPID_PUBLIC_KEY'),
+      privateKey: optional('VAPID_PRIVATE_KEY'),
+      subject: optional('VAPID_SUBJECT', 'mailto:noreply@velvet-scoops.wispy-nook.casa'),
     },
   };
 }

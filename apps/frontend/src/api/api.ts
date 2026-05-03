@@ -250,6 +250,26 @@ export const api = createApi({
       invalidatesTags: ['Message'],
     }),
 
+    getVapidPublicKey: b.query<string, void>({
+      query: () => ({ url: 'push/vapid-public-key' }),
+      transformResponse: (r: { data: { publicKey: string } }) => r.data.publicKey,
+    }),
+    subscribePush: b.mutation<
+      { id: string; endpoint: string },
+      { endpoint: string; p256dh: string; auth: string; userAgent?: string }
+    >({
+      query: (body) => ({ url: 'push/subscribe', method: 'POST', body }),
+      transformResponse: (r: { data: { id: string; endpoint: string } }) => r.data,
+    }),
+    unsubscribePush: b.mutation<{ ok: boolean }, { endpoint?: string } | void>({
+      query: (body) => ({
+        url: 'push/subscribe',
+        method: 'DELETE',
+        ...(body && body.endpoint ? { body } : {}),
+      }),
+      transformResponse: (r: { data: { ok: boolean } }) => r.data,
+    }),
+
     submitFeedback: b.mutation<
       { issueNumber: number; issueUrl: string },
       { body: string; pageUrl?: string }
@@ -334,4 +354,7 @@ export const {
   useUnmuteUserMutation,
   useSubmitFeedbackMutation,
   useListMyFeedbackQuery,
+  useGetVapidPublicKeyQuery,
+  useSubscribePushMutation,
+  useUnsubscribePushMutation,
 } = api;

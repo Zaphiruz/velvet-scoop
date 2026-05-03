@@ -41,6 +41,7 @@ model User {
   messagesReceived    Message[]            @relation("MessageRecipient")
   auditEntries        AuditLog[]
   feedbackSubmissions FeedbackSubmission[]
+  pushSubscriptions   PushSubscription[]
 
   @@map("users")
 }
@@ -154,6 +155,22 @@ model FeedbackSubmission {
 
   @@index([userId, createdAt])
   @@map("feedback_submissions")
+}
+
+model PushSubscription {
+  id         String    @id @default(uuid()) @db.Uuid
+  userId     String    @map("user_id") @db.Uuid
+  endpoint   String    @unique
+  p256dh     String
+  auth       String
+  userAgent  String?   @map("user_agent")
+  lastUsedAt DateTime? @map("last_used_at")
+  createdAt  DateTime  @default(now()) @map("created_at")
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@map("push_subscriptions")
 }
 
 model AuditLog {

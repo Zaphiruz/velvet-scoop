@@ -6,9 +6,11 @@
 
 import type { PrismaClient } from '@prisma/client';
 import type { Mailer } from './mailer.js';
+import type { PushService } from './push.js';
 
 export interface NotificationChannels {
   mailer?: Mailer;
+  push?: PushService;
 }
 
 export type NotifyAudience = 'owners' | 'customer';
@@ -69,6 +71,7 @@ export async function notifyOrderArrived(
   const r = await loadRequest(prisma, requestId);
   if (!r) return;
 
+  // Email channel
   if (channels.mailer) {
     const recipients = await ownerEmails(prisma);
     if (recipients.length > 0) {
@@ -101,6 +104,19 @@ export async function notifyOrderArrived(
       });
     } catch (err) {
       log?.(err, 'customer confirmation email failed');
+    }
+  }
+
+  // Push channel (owners only — customer is unauth-style flow without browser context yet)
+  if (channels.push) {
+    try {
+      await channels.push.sendToOwners({
+        title: 'New Velvet Scoop order',
+        body: `${r.contactName} — $${r.total.toString()}`,
+        url: '/admin',
+      });
+    } catch (err) {
+      log?.(err, 'owner push failed');
     }
   }
 }
@@ -150,6 +166,37 @@ export async function notifyOrderStatusChanged(
         } catch (err) {
           log?.(err, 'owner cancel email failed');
         }
+      }
+    }
+  }
+
+  // Push channel — push to the customer (if they're a signed-in member with a
+  // subscription on this device) and to owners on cancel.
+  if (channels.push) {
+    const customer = await prisma.user.findFirst({
+      where: { email: r.contactEmail },
+      select: { id: true },
+    });
+    if (customer) {
+      try {
+        await channels.push.sendToUser(customer.id, {
+          title: subjects[status],
+          body: intros[status],
+          url: '/requests',
+        });
+      } catch (err) {
+        log?.(err, 'customer push failed');
+      }
+    }
+    if (status === 'cancelled') {
+      try {
+        await channels.push.sendToOwners({
+          title: `Order cancelled: ${r.contactName}`,
+          body: `$${r.total.toString()} — see admin`,
+          url: '/admin',
+        });
+      } catch (err) {
+        log?.(err, 'owner cancel push failed');
       }
     }
   }
