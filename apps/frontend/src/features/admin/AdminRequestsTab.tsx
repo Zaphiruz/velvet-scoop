@@ -3,12 +3,11 @@ import {
   useAcceptRequestMutation,
   useCancelRequestMutation,
   useCompleteRequestMutation,
-  useGetMeQuery,
-  useListRequestMessagesQuery,
   useListRequestsQuery,
   type OrderRequest,
 } from '../../api/api';
 import { MessageThread } from '../requests/MessageThread';
+import { MessagesToggle } from '../requests/MessagesToggle';
 
 const STATUS_STYLES: Record<OrderRequest['status'], string> = {
   pending: 'border-amber-700 bg-amber-950/40 text-amber-200',
@@ -16,36 +15,6 @@ const STATUS_STYLES: Record<OrderRequest['status'], string> = {
   completed: 'border-emerald-700 bg-emerald-950/40 text-emerald-200',
   cancelled: 'border-slate-700 bg-slate-800 text-slate-400',
 };
-
-function MessagesToggle({
-  request,
-  expanded,
-  onToggle,
-}: {
-  request: OrderRequest;
-  expanded: boolean;
-  onToggle: () => void;
-}) {
-  const { data: me } = useGetMeQuery();
-  const { data: messages = [] } = useListRequestMessagesQuery(request.id, {
-    pollingInterval: expanded ? undefined : 30_000,
-  });
-  const unread = me
-    ? messages.filter((m) => m.senderId !== me.id && !m.readAt && !m.deleted).length
-    : 0;
-  return (
-    <button
-      type="button"
-      onClick={onToggle}
-      className="mt-2 flex w-full items-center justify-between rounded border border-slate-800 px-2 py-1 text-xs text-slate-400 hover:bg-slate-800/40"
-    >
-      <span>
-        💬 Messages{unread > 0 ? ` (${unread})` : ''}
-      </span>
-      <span aria-hidden>{expanded ? '▴' : '▾'}</span>
-    </button>
-  );
-}
 
 export function AdminRequestsTab() {
   const { data: requests, isLoading } = useListRequestsQuery();

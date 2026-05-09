@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import {
   useDeleteRequestMessageMutation,
   useGetMeQuery,
@@ -37,6 +37,11 @@ export function MessageThread({
   const bottomRef = useRef<HTMLDivElement | null>(null);
 
   const isClosed = status !== 'pending' && status !== 'accepted';
+
+  const lastMineId = useMemo(
+    () => [...messages].reverse().find((x) => x.senderId === me?.id)?.id,
+    [messages, me?.id],
+  );
 
   // Auto-scroll on new messages.
   useEffect(() => {
@@ -102,9 +107,6 @@ export function MessageThread({
         )}
         {messages.map((m) => {
           const mine = me?.id === m.senderId;
-          const lastMineId = [...messages]
-            .reverse()
-            .find((x) => x.senderId === me?.id)?.id;
           const lastMine = mine && m.id === lastMineId;
           const seenByCounterparty = lastMine && m.readAt !== null;
 
