@@ -65,9 +65,9 @@ export function RequestsPage() {
                     </span>
                     <span
                       className="font-mono text-xs text-slate-500"
-                      title={`Order ID ${r.id} — quote this on payment`}
+                      title="Quote this order number on payment"
                     >
-                      #{r.id.slice(0, 7)}
+                      #{r.orderNumber}
                     </span>
                   </div>
                   <p className="text-xs text-slate-500">

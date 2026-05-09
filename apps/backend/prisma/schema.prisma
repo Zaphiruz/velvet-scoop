@@ -67,6 +67,7 @@ model Item {
 
 model Request {
   id           String        @id @default(uuid()) @db.Uuid
+  orderNumber  Int           @unique @default(autoincrement()) @map("order_number")
   userId       String        @map("user_id") @db.Uuid
   total        Decimal       @db.Decimal(10, 2)
   scheduledFor DateTime      @map("scheduled_for")

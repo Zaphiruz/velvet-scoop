@@ -95,6 +95,29 @@ describe('requests routes', () => {
     expect(Number(res.json().data.total)).toBe(22);
   });
 
+  it('POST /api/requests assigns a sequential orderNumber', async () => {
+    const user = await h.createUser();
+    const cookie = await h.cookieFor(user.id);
+    const item = await seedItem();
+    const first = await h.app.inject({
+      method: 'POST',
+      url: '/api/requests',
+      headers: { cookie, 'content-type': 'application/json' },
+      payload: basePayload([{ itemId: item.id, quantity: 1 }]),
+    });
+    const second = await h.app.inject({
+      method: 'POST',
+      url: '/api/requests',
+      headers: { cookie, 'content-type': 'application/json' },
+      payload: basePayload([{ itemId: item.id, quantity: 1 }]),
+    });
+    const n1 = first.json().data.orderNumber;
+    const n2 = second.json().data.orderNumber;
+    expect(typeof n1).toBe('number');
+    expect(typeof n2).toBe('number');
+    expect(n2).toBe(n1 + 1);
+  });
+
   it('GET /api/requests returns only own requests for members', async () => {
     const alice = await h.createUser();
     const bob = await h.createUser();
