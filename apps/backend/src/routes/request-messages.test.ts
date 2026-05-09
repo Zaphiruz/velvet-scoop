@@ -178,4 +178,133 @@ describe('request-messages routes', () => {
       expect(res.statusCode).toBe(400);
     });
   });
+
+  describe('push notifications on send', () => {
+    it('customer send invokes sendToOwners with correct title and url', async () => {
+      const { buildApp } = await import('../app.js');
+      const { Redis } = await import('ioredis');
+      const { PrismaClient } = await import('@prisma/client');
+      const { createSessionStore } = await import('../auth/session.js');
+      const { FakeOidcClient, TEST_COOKIE_NAME } = await import('../test/helpers/test-app.js');
+
+      const owners: Array<{ title: string; body: string; url?: string }> = [];
+      const usersTo: Array<{ userId: string; payload: { title: string } }> = [];
+
+      const prisma = new PrismaClient();
+      const redis = new Redis(process.env['REDIS_URL'] ?? 'redis://localhost:6380');
+      const sessionStore = createSessionStore(redis, { ttlSeconds: 300 });
+      const fakeOidc = new FakeOidcClient();
+
+      const app = await buildApp({
+        prisma,
+        redis,
+        sessionStore,
+        sessionCookieName: TEST_COOKIE_NAME,
+        sessionSecret: 'test-secret',
+        sessionTtlSeconds: 300,
+        cookieSecure: false,
+        oidcClient: fakeOidc,
+        authentikGroups: { memberGroup: 'velvet-scoop-users', adminGroup: 'velvet-scoop-admins' },
+        frontendOrigin: 'http://localhost:5180',
+        disableRateLimit: true,
+        pushService: {
+          publicKey: 'test-vapid',
+          async sendToUser(userId, payload) { usersTo.push({ userId, payload }); },
+          async sendToOwners(payload) { owners.push(payload); },
+        },
+      });
+      await app.ready();
+
+      try {
+        const customer = await h.createUser();
+        const req1 = await seedRequest(customer.id);
+        const sid = await sessionStore.create(customer.id);
+        const cookie = `${TEST_COOKIE_NAME}=${sid}`;
+
+        const res = await app.inject({
+          method: 'POST',
+          url: `/api/requests/${req1.id}/messages`,
+          headers: { cookie, 'content-type': 'application/json' },
+          payload: { content: 'I have a question' },
+        });
+        expect(res.statusCode).toBe(201);
+
+        // Fire-and-forget — let the notification settle.
+        await new Promise((r) => setTimeout(r, 50));
+
+        expect(owners).toHaveLength(1);
+        expect(owners[0]!.title).toMatch(/Message on order #\d+/);
+        expect(owners[0]!.body).toContain('I have a question');
+        expect(usersTo).toHaveLength(0);
+      } finally {
+        await app.close();
+        await redis.quit();
+        await prisma.$disconnect();
+      }
+    });
+
+    it('owner reply invokes sendToUser targeting the customer', async () => {
+      const { buildApp } = await import('../app.js');
+      const { Redis } = await import('ioredis');
+      const { PrismaClient } = await import('@prisma/client');
+      const { createSessionStore } = await import('../auth/session.js');
+      const { FakeOidcClient, TEST_COOKIE_NAME } = await import('../test/helpers/test-app.js');
+
+      const usersTo: Array<{ userId: string; payload: { title: string; body: string } }> = [];
+      const ownersTo: Array<unknown> = [];
+
+      const prisma = new PrismaClient();
+      const redis = new Redis(process.env['REDIS_URL'] ?? 'redis://localhost:6380');
+      const sessionStore = createSessionStore(redis, { ttlSeconds: 300 });
+      const fakeOidc = new FakeOidcClient();
+
+      const app = await buildApp({
+        prisma,
+        redis,
+        sessionStore,
+        sessionCookieName: TEST_COOKIE_NAME,
+        sessionSecret: 'test-secret',
+        sessionTtlSeconds: 300,
+        cookieSecure: false,
+        oidcClient: fakeOidc,
+        authentikGroups: { memberGroup: 'velvet-scoop-users', adminGroup: 'velvet-scoop-admins' },
+        frontendOrigin: 'http://localhost:5180',
+        disableRateLimit: true,
+        pushService: {
+          publicKey: 'test-vapid',
+          async sendToUser(userId, payload) { usersTo.push({ userId, payload }); },
+          async sendToOwners(payload) { ownersTo.push(payload); },
+        },
+      });
+      await app.ready();
+
+      try {
+        const customer = await h.createUser();
+        const owner = await h.createUser({ role: 'admin' });
+        await h.prisma.user.update({ where: { id: owner.id }, data: { isOwner: true } });
+        const req1 = await seedRequest(customer.id);
+        const sid = await sessionStore.create(owner.id);
+        const cookie = `${TEST_COOKIE_NAME}=${sid}`;
+
+        const res = await app.inject({
+          method: 'POST',
+          url: `/api/requests/${req1.id}/messages`,
+          headers: { cookie, 'content-type': 'application/json' },
+          payload: { content: 'on it' },
+        });
+        expect(res.statusCode).toBe(201);
+
+        await new Promise((r) => setTimeout(r, 50));
+
+        expect(usersTo).toHaveLength(1);
+        expect(usersTo[0]!.userId).toBe(customer.id);
+        expect(usersTo[0]!.payload.title).toMatch(/reply from Velvet Scoop/);
+        expect(ownersTo).toHaveLength(0);
+      } finally {
+        await app.close();
+        await redis.quit();
+        await prisma.$disconnect();
+      }
+    });
+  });
 });

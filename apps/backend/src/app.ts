@@ -118,7 +118,7 @@ export async function buildApp(options: BuildAppOptions): Promise<FastifyInstanc
   registerRequestRoutes(app, { prisma: options.prisma, channels });
   registerReviewRoutes(app, { prisma: options.prisma });
   registerMessageRoutes(app, { prisma: options.prisma });
-  registerRequestMessageRoutes(app, { prisma: options.prisma });
+  registerRequestMessageRoutes(app, { prisma: options.prisma, channels });
   if (options.githubClient) {
     registerFeedbackRoutes(app, { prisma: options.prisma, github: options.githubClient });
   }

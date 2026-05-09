@@ -1,8 +1,10 @@
 import type { FastifyInstance, FastifyReply } from 'fastify';
 import type { PrismaClient } from '@prisma/client';
+import { notifyMessage, type NotificationChannels } from '../services/notifications.js';
 
 export interface RequestMessageRouteDeps {
   prisma: PrismaClient;
+  channels?: NotificationChannels;
 }
 
 interface ParticipantContext {
@@ -102,6 +104,12 @@ export function registerRequestMessageRoutes(app: FastifyInstance, deps: Request
         },
         include: { sender: { select: { id: true, displayName: true } } },
       });
+
+      if (deps.channels) {
+        void notifyMessage(deps.prisma, deps.channels, created.id, (err, msg) =>
+          req.log.warn({ err }, msg),
+        );
+      }
 
       reply.code(201);
       return {

@@ -203,3 +203,74 @@ export async function notifyOrderStatusChanged(
     }
   }
 }
+
+interface MessageForNotify {
+  id: string;
+  content: string;
+  sender: { id: string; displayName: string };
+  request: {
+    id: string;
+    userId: string;
+    orderNumber: number;
+    contactName: string;
+  };
+}
+
+async function loadMessage(
+  prisma: PrismaClient,
+  messageId: string,
+): Promise<MessageForNotify | null> {
+  const m = await prisma.requestMessage.findUnique({
+    where: { id: messageId },
+    include: {
+      sender: { select: { id: true, displayName: true } },
+      request: { select: { id: true, userId: true, orderNumber: true, contactName: true } },
+    },
+  });
+  if (!m) return null;
+  return {
+    id: m.id,
+    content: m.content,
+    sender: m.sender,
+    request: m.request,
+  };
+}
+
+function snippet(s: string): string {
+  const trimmed = s.trim();
+  return trimmed.length <= 80 ? trimmed : `${trimmed.slice(0, 77)}…`;
+}
+
+export async function notifyMessage(
+  prisma: PrismaClient,
+  channels: NotificationChannels,
+  messageId: string,
+  log?: (err: unknown, msg: string) => void,
+): Promise<void> {
+  const m = await loadMessage(prisma, messageId);
+  if (!m) return;
+  if (!channels.push) return;
+
+  const senderIsCustomer = m.sender.id === m.request.userId;
+  if (senderIsCustomer) {
+    try {
+      await channels.push.sendToOwners({
+        title: `Message on order #${m.request.orderNumber}`,
+        body: `${m.request.contactName}: ${snippet(m.content)}`,
+        url: '/requests',
+      });
+    } catch (err) {
+      log?.(err, 'owner message push failed');
+    }
+  } else {
+    try {
+      await channels.push.sendToUser(m.request.userId, {
+        title: `Order #${m.request.orderNumber} — reply from Velvet Scoop`,
+        body: `${m.sender.displayName}: ${snippet(m.content)}`,
+        url: '/requests',
+      });
+    } catch (err) {
+      log?.(err, 'customer message push failed');
+    }
+  }
+}
