@@ -359,4 +359,63 @@ describe('request-messages routes', () => {
       expect(second.json().data.updated).toBe(0);
     });
   });
+
+  describe('DELETE /api/requests/:id/messages/:msgId', () => {
+    it('sender can soft-delete their own message; subsequent GET returns deleted:true content:null', async () => {
+      const customer = await h.createUser();
+      const req1 = await seedRequest(customer.id);
+      const cookie = await h.cookieFor(customer.id);
+
+      const send = await h.app.inject({
+        method: 'POST', url: `/api/requests/${req1.id}/messages`,
+        headers: { cookie, 'content-type': 'application/json' },
+        payload: { content: 'oops' },
+      });
+      const msgId = send.json().data.id;
+
+      const del = await h.app.inject({
+        method: 'DELETE', url: `/api/requests/${req1.id}/messages/${msgId}`, headers: { cookie },
+      });
+      expect(del.statusCode).toBe(200);
+
+      const list = await h.app.inject({
+        method: 'GET', url: `/api/requests/${req1.id}/messages`, headers: { cookie },
+      });
+      const data = list.json().data;
+      expect(data).toHaveLength(1);
+      expect(data[0].deleted).toBe(true);
+      expect(data[0].content).toBeNull();
+    });
+
+    it('non-sender owner cannot delete the customer\'s message', async () => {
+      const customer = await h.createUser();
+      const owner = await h.createUser({ role: 'admin' });
+      await h.prisma.user.update({ where: { id: owner.id }, data: { isOwner: true } });
+      const req1 = await seedRequest(customer.id);
+
+      const send = await h.app.inject({
+        method: 'POST', url: `/api/requests/${req1.id}/messages`,
+        headers: { cookie: await h.cookieFor(customer.id), 'content-type': 'application/json' },
+        payload: { content: 'mine' },
+      });
+      const msgId = send.json().data.id;
+
+      const del = await h.app.inject({
+        method: 'DELETE', url: `/api/requests/${req1.id}/messages/${msgId}`,
+        headers: { cookie: await h.cookieFor(owner.id) },
+      });
+      expect(del.statusCode).toBe(403);
+    });
+
+    it('returns 404 for a non-existent message', async () => {
+      const customer = await h.createUser();
+      const req1 = await seedRequest(customer.id);
+      const res = await h.app.inject({
+        method: 'DELETE',
+        url: `/api/requests/${req1.id}/messages/00000000-0000-0000-0000-000000000000`,
+        headers: { cookie: await h.cookieFor(customer.id) },
+      });
+      expect(res.statusCode).toBe(404);
+    });
+  });
 });

@@ -1037,7 +1037,7 @@ git commit -m "POST /api/requests/:id/messages/read mark-read endpoint"
 Append inside the outer `describe`:
 
 ```ts
-  describe('DELETE /api/messages/:msgId', () => {
+  describe('DELETE /api/requests/:id/messages/:msgId', () => {
     it('sender can soft-delete their own message; subsequent GET returns deleted:true content:null', async () => {
       const customer = await h.createUser();
       const req1 = await seedRequest(customer.id);
@@ -1051,7 +1051,7 @@ Append inside the outer `describe`:
       const msgId = send.json().data.id;
 
       const del = await h.app.inject({
-        method: 'DELETE', url: `/api/messages/${msgId}`, headers: { cookie },
+        method: 'DELETE', url: `/api/requests/${req1.id}/messages/${msgId}`, headers: { cookie },
       });
       expect(del.statusCode).toBe(200);
 
@@ -1078,7 +1078,7 @@ Append inside the outer `describe`:
       const msgId = send.json().data.id;
 
       const del = await h.app.inject({
-        method: 'DELETE', url: `/api/messages/${msgId}`,
+        method: 'DELETE', url: `/api/requests/${req1.id}/messages/${msgId}`,
         headers: { cookie: await h.cookieFor(owner.id) },
       });
       expect(del.statusCode).toBe(403);
@@ -1086,8 +1086,10 @@ Append inside the outer `describe`:
 
     it('returns 404 for a non-existent message', async () => {
       const customer = await h.createUser();
+      const req1 = await seedRequest(customer.id);
       const res = await h.app.inject({
-        method: 'DELETE', url: '/api/messages/00000000-0000-0000-0000-000000000000',
+        method: 'DELETE',
+        url: `/api/requests/${req1.id}/messages/00000000-0000-0000-0000-000000000000`,
         headers: { cookie: await h.cookieFor(customer.id) },
       });
       expect(res.statusCode).toBe(404);
@@ -1108,8 +1110,8 @@ Expected: 3 new failures.
 Append inside `registerRequestMessageRoutes`:
 
 ```ts
-  app.delete<{ Params: { msgId: string } }>(
-    '/api/messages/:msgId',
+  app.delete<{ Params: { id: string; msgId: string } }>(
+    '/api/requests/:id/messages/:msgId',
     { preHandler: app.requireAuth },
     async (req, reply) => {
       const viewer = req.user!;
@@ -1149,7 +1151,7 @@ Expected: 17 passing.
 ```
 git add apps/backend/src/routes/request-messages.ts \
         apps/backend/src/routes/request-messages.test.ts
-git commit -m "DELETE /api/messages/:msgId soft-delete endpoint"
+git commit -m "DELETE /api/requests/:id/messages/:msgId soft-delete endpoint"
 ```
 
 ---
@@ -1338,8 +1340,8 @@ Inside the `endpoints: (b) => ({ ... })` block in `apps/frontend/src/api/api.ts`
       ],
     }),
     deleteRequestMessage: b.mutation<{ ok: boolean }, { requestId: string; messageId: string }>({
-      query: ({ messageId }) => ({
-        url: `messages/${messageId}`,
+      query: ({ requestId, messageId }) => ({
+        url: `requests/${requestId}/messages/${messageId}`,
         method: 'DELETE',
       }),
       transformResponse: (r: { data: { ok: boolean } }) => r.data,
@@ -1999,7 +2001,7 @@ gh pr create --title "Order chat (closes #4)" \
   --body "Implements docs/superpowers/specs/2026-05-09-order-chat-design.md.
 
 - New \`RequestMessage\` model + migration (schema-additive, no backfill).
-- New \`/api/requests/:id/messages\` route namespace (GET, POST, /read; DELETE on /api/messages/:msgId).
+- New \`/api/requests/:id/messages\` route namespace (GET, POST, /read; DELETE on /api/requests/:id/messages/:msgId).
 - 30/min/user rate limit on send via @fastify/rate-limit.
 - Push notifications wired through existing NotificationChannels.
 - New \`MessageThread\` component reused on customer + admin sides; inline expand on each card; unread badge.
@@ -2026,7 +2028,7 @@ Plan execution done. Issue #4 closed by the merged PR.
 | `GET /api/requests/:id/messages` | Task 2 |
 | `POST /api/requests/:id/messages` | Task 3 |
 | `POST /api/requests/:id/messages/read` | Task 5 |
-| `DELETE /api/messages/:msgId` | Task 6 |
+| `DELETE /api/requests/:id/messages/:msgId` | Task 6 |
 | `notifyMessage` push wiring | Task 4 |
 | Rate limiting (30/min) | Task 7 |
 | `RequestMessage` interface + RTK endpoints | Task 8 |

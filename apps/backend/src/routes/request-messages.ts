@@ -146,4 +146,31 @@ export function registerRequestMessageRoutes(app: FastifyInstance, deps: Request
       return { data: { updated: result.count } };
     },
   );
+
+  app.delete<{ Params: { id: string; msgId: string } }>(
+    '/api/requests/:id/messages/:msgId',
+    { preHandler: app.requireAuth },
+    async (req, reply) => {
+      const viewer = req.user!;
+      const m = await deps.prisma.requestMessage.findUnique({
+        where: { id: req.params.msgId },
+        select: { id: true, senderId: true, deletedAt: true },
+      });
+      if (!m || m.deletedAt) {
+        return reply.code(404).send({
+          error: { code: 'NOT_FOUND', message: 'Message not found' },
+        });
+      }
+      if (m.senderId !== viewer.id) {
+        return reply.code(403).send({
+          error: { code: 'FORBIDDEN', message: 'You can only delete your own messages' },
+        });
+      }
+      await deps.prisma.requestMessage.update({
+        where: { id: m.id },
+        data: { deletedAt: new Date() },
+      });
+      return { data: { ok: true } };
+    },
+  );
 }
