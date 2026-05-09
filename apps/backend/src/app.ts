@@ -14,6 +14,7 @@ import { registerItemRoutes } from './routes/items.js';
 import { registerRequestRoutes } from './routes/requests.js';
 import { registerReviewRoutes } from './routes/reviews.js';
 import { registerMessageRoutes } from './routes/messages.js';
+import { registerRequestMessageRoutes } from './routes/request-messages.js';
 import { registerFeedbackRoutes } from './routes/feedback.js';
 import { registerPushRoutes } from './routes/push.js';
 import type { GithubClient } from './services/github.js';
@@ -117,6 +118,7 @@ export async function buildApp(options: BuildAppOptions): Promise<FastifyInstanc
   registerRequestRoutes(app, { prisma: options.prisma, channels });
   registerReviewRoutes(app, { prisma: options.prisma });
   registerMessageRoutes(app, { prisma: options.prisma });
+  registerRequestMessageRoutes(app, { prisma: options.prisma });
   if (options.githubClient) {
     registerFeedbackRoutes(app, { prisma: options.prisma, github: options.githubClient });
   }
