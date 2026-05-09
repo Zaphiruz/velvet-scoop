@@ -41,6 +41,12 @@ export function AdminRequestsTab() {
                   {r.status}
                 </span>
                 <span className="text-sm text-slate-400">${r.total}</span>
+                <span
+                  className="font-mono text-xs text-slate-500"
+                  title={`Order ID ${r.id}`}
+                >
+                  #{r.id.slice(0, 7)}
+                </span>
               </div>
               <p className="text-xs text-slate-500">
                 {r.contactEmail} • scheduled{' '}
