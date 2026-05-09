@@ -103,4 +103,79 @@ describe('request-messages routes', () => {
       expect(res.statusCode).toBe(404);
     });
   });
+
+  describe('POST /api/requests/:id/messages', () => {
+    it('customer can send while pending and the message is returned', async () => {
+      const customer = await h.createUser();
+      const req1 = await seedRequest(customer.id);
+      const res = await h.app.inject({
+        method: 'POST',
+        url: `/api/requests/${req1.id}/messages`,
+        headers: { cookie: await h.cookieFor(customer.id), 'content-type': 'application/json' },
+        payload: { content: 'hello there' },
+      });
+      expect(res.statusCode).toBe(201);
+      const body = res.json().data;
+      expect(body.content).toBe('hello there');
+      expect(body.senderId).toBe(customer.id);
+      expect(body.deleted).toBe(false);
+      expect(body.readAt).toBeNull();
+    });
+
+    it('owner can send on someone else\'s request', async () => {
+      const customer = await h.createUser();
+      const owner = await h.createUser({ role: 'admin' });
+      await h.prisma.user.update({ where: { id: owner.id }, data: { isOwner: true } });
+      const req1 = await seedRequest(customer.id);
+      const res = await h.app.inject({
+        method: 'POST',
+        url: `/api/requests/${req1.id}/messages`,
+        headers: { cookie: await h.cookieFor(owner.id), 'content-type': 'application/json' },
+        payload: { content: 'on it' },
+      });
+      expect(res.statusCode).toBe(201);
+      expect(res.json().data.senderId).toBe(owner.id);
+    });
+
+    it('returns 409 THREAD_CLOSED on a completed request', async () => {
+      const customer = await h.createUser();
+      const req1 = await seedRequest(customer.id);
+      await h.prisma.request.update({
+        where: { id: req1.id },
+        data: { status: 'completed', completedAt: new Date() },
+      });
+      const res = await h.app.inject({
+        method: 'POST',
+        url: `/api/requests/${req1.id}/messages`,
+        headers: { cookie: await h.cookieFor(customer.id), 'content-type': 'application/json' },
+        payload: { content: 'late reply' },
+      });
+      expect(res.statusCode).toBe(409);
+      expect(res.json().error.code).toBe('THREAD_CLOSED');
+    });
+
+    it('rejects empty content with 400', async () => {
+      const customer = await h.createUser();
+      const req1 = await seedRequest(customer.id);
+      const res = await h.app.inject({
+        method: 'POST',
+        url: `/api/requests/${req1.id}/messages`,
+        headers: { cookie: await h.cookieFor(customer.id), 'content-type': 'application/json' },
+        payload: { content: '   ' },
+      });
+      expect(res.statusCode).toBe(400);
+    });
+
+    it('rejects content over 4000 chars with 400', async () => {
+      const customer = await h.createUser();
+      const req1 = await seedRequest(customer.id);
+      const res = await h.app.inject({
+        method: 'POST',
+        url: `/api/requests/${req1.id}/messages`,
+        headers: { cookie: await h.cookieFor(customer.id), 'content-type': 'application/json' },
+        payload: { content: 'a'.repeat(4001) },
+      });
+      expect(res.statusCode).toBe(400);
+    });
+  });
 });

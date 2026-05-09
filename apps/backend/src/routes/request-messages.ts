@@ -60,4 +60,62 @@ export function registerRequestMessageRoutes(app: FastifyInstance, deps: Request
       return { data };
     },
   );
+
+  app.post<{ Params: { id: string }; Body: { content?: unknown } }>(
+    '/api/requests/:id/messages',
+    { preHandler: app.requireAuth },
+    async (req, reply) => {
+      const viewer = req.user!;
+      const loaded = await loadRequestForParticipant(deps.prisma, req.params.id, viewer, reply);
+      if (!loaded) return reply;
+
+      const status = loaded.requestRow.status;
+      if (status !== 'pending' && status !== 'accepted') {
+        return reply.code(409).send({
+          error: { code: 'THREAD_CLOSED', message: 'This order is closed; messaging is locked' },
+        });
+      }
+
+      const raw = (req.body ?? {}).content;
+      if (typeof raw !== 'string') {
+        return reply.code(400).send({
+          error: { code: 'BAD_REQUEST', message: 'content must be a string' },
+        });
+      }
+      const content = raw.trim();
+      if (content.length === 0) {
+        return reply.code(400).send({
+          error: { code: 'BAD_REQUEST', message: 'content is required' },
+        });
+      }
+      if (content.length > 4000) {
+        return reply.code(400).send({
+          error: { code: 'BAD_REQUEST', message: 'content must be 4000 characters or fewer' },
+        });
+      }
+
+      const created = await deps.prisma.requestMessage.create({
+        data: {
+          requestId: loaded.requestRow.id,
+          senderId: viewer.id,
+          content,
+        },
+        include: { sender: { select: { id: true, displayName: true } } },
+      });
+
+      reply.code(201);
+      return {
+        data: {
+          id: created.id,
+          requestId: created.requestId,
+          senderId: created.senderId,
+          sender: created.sender,
+          content: created.content,
+          deleted: false,
+          readAt: null,
+          createdAt: created.createdAt.toISOString(),
+        },
+      };
+    },
+  );
 }
