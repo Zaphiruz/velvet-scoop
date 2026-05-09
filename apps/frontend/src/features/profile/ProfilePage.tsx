@@ -25,17 +25,19 @@ export function ProfilePage() {
       </section>
 
       <dl className="space-y-3 rounded-lg border border-slate-800 bg-slate-900/60 p-4 text-sm">
-        <div className="flex justify-between">
-          <dt className="text-slate-400">Name</dt>
-          <dd>{me.displayName}</dd>
+        <div className="flex items-baseline justify-between gap-3">
+          <dt className="shrink-0 text-slate-400">Name</dt>
+          <dd className="min-w-0 truncate text-right">{me.displayName}</dd>
         </div>
-        <div className="flex justify-between">
-          <dt className="text-slate-400">Email</dt>
-          <dd>{me.email}</dd>
+        <div className="flex items-baseline justify-between gap-3">
+          <dt className="shrink-0 text-slate-400">Email</dt>
+          <dd className="min-w-0 truncate text-right" title={me.email}>
+            {me.email}
+          </dd>
         </div>
-        <div className="flex justify-between">
-          <dt className="text-slate-400">Role</dt>
-          <dd className="capitalize">{me.role}</dd>
+        <div className="flex items-baseline justify-between gap-3">
+          <dt className="shrink-0 text-slate-400">Role</dt>
+          <dd className="min-w-0 truncate text-right capitalize">{me.role}</dd>
         </div>
       </dl>
 

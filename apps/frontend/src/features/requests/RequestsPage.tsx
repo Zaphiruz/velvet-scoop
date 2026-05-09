@@ -63,6 +63,12 @@ export function RequestsPage() {
                     >
                       {r.status}
                     </span>
+                    <span
+                      className="font-mono text-xs text-slate-500"
+                      title={`Order ID ${r.id} — quote this on payment`}
+                    >
+                      #{r.id.slice(0, 7)}
+                    </span>
                   </div>
                   <p className="text-xs text-slate-500">
                     Scheduled {new Date(r.scheduledFor).toLocaleString()}
