@@ -13,11 +13,9 @@ interface ParticipantContext {
 async function loadRequestForParticipant(
   prisma: PrismaClient,
   requestId: string,
-  viewerId: string,
-  viewerRole: string,
-  viewerIsOwner: boolean,
+  viewer: { id: string; role: string; isOwner: boolean },
   reply: FastifyReply,
-): Promise<{ requestRow: { id: string; userId: string; status: string } | null; ctx: ParticipantContext } | null> {
+): Promise<{ requestRow: { id: string; userId: string; status: string }; ctx: ParticipantContext } | null> {
   const requestRow = await prisma.request.findUnique({
     where: { id: requestId },
     select: { id: true, userId: true, status: true, deletedAt: true },
@@ -26,8 +24,8 @@ async function loadRequestForParticipant(
     reply.code(404).send({ error: { code: 'NOT_FOUND', message: 'Request not found' } });
     return null;
   }
-  const isCustomer = requestRow.userId === viewerId;
-  const isOwner = viewerRole === 'admin' && viewerIsOwner === true;
+  const isCustomer = requestRow.userId === viewer.id;
+  const isOwner = viewer.role === 'admin' && viewer.isOwner === true;
   if (!isCustomer && !isOwner) {
     reply.code(403).send({ error: { code: 'FORBIDDEN', message: 'Not a participant on this thread' } });
     return null;
@@ -41,18 +39,11 @@ export function registerRequestMessageRoutes(app: FastifyInstance, deps: Request
     { preHandler: app.requireAuth },
     async (req, reply) => {
       const viewer = req.user!;
-      const loaded = await loadRequestForParticipant(
-        deps.prisma,
-        req.params.id,
-        viewer.id,
-        viewer.role,
-        viewer.isOwner ?? false,
-        reply,
-      );
+      const loaded = await loadRequestForParticipant(deps.prisma, req.params.id, viewer, reply);
       if (!loaded) return reply;
 
       const messages = await deps.prisma.requestMessage.findMany({
-        where: { requestId: loaded.requestRow!.id },
+        where: { requestId: loaded.requestRow.id },
         orderBy: { createdAt: 'asc' },
         include: { sender: { select: { id: true, displayName: true } } },
       });
