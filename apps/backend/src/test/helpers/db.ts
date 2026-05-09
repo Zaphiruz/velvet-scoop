@@ -30,6 +30,7 @@ const ALL_TABLES = [
   'audit_logs',
   'reviews',
   'request_items',
+  'request_messages',
   'requests',
   'messages',
   'items',
