@@ -126,4 +126,24 @@ export function registerRequestMessageRoutes(app: FastifyInstance, deps: Request
       };
     },
   );
+
+  app.post<{ Params: { id: string } }>(
+    '/api/requests/:id/messages/read',
+    { preHandler: app.requireAuth },
+    async (req, reply) => {
+      const viewer = req.user!;
+      const loaded = await loadRequestForParticipant(deps.prisma, req.params.id, viewer, reply);
+      if (!loaded) return reply;
+
+      const result = await deps.prisma.requestMessage.updateMany({
+        where: {
+          requestId: loaded.requestRow.id,
+          senderId: { not: viewer.id },
+          readAt: null,
+        },
+        data: { readAt: new Date() },
+      });
+      return { data: { updated: result.count } };
+    },
+  );
 }

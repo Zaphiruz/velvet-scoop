@@ -307,4 +307,56 @@ describe('request-messages routes', () => {
       }
     });
   });
+
+  describe('POST /api/requests/:id/messages/read', () => {
+    it('flips readAt only on counterparty messages', async () => {
+      const customer = await h.createUser();
+      const owner = await h.createUser({ role: 'admin' });
+      await h.prisma.user.update({ where: { id: owner.id }, data: { isOwner: true } });
+      const req1 = await seedRequest(customer.id);
+
+      const fromOwner = await h.prisma.requestMessage.create({
+        data: { requestId: req1.id, senderId: owner.id, content: 'from owner' },
+      });
+      const fromCustomer = await h.prisma.requestMessage.create({
+        data: { requestId: req1.id, senderId: customer.id, content: 'from customer' },
+      });
+
+      const res = await h.app.inject({
+        method: 'POST',
+        url: `/api/requests/${req1.id}/messages/read`,
+        headers: { cookie: await h.cookieFor(customer.id) },
+      });
+      expect(res.statusCode).toBe(200);
+      expect(res.json().data.updated).toBe(1);
+
+      const after = await h.prisma.requestMessage.findMany({
+        where: { requestId: req1.id },
+        orderBy: { createdAt: 'asc' },
+      });
+      const ownerRow = after.find((m) => m.id === fromOwner.id)!;
+      const customerRow = after.find((m) => m.id === fromCustomer.id)!;
+      expect(ownerRow.readAt).not.toBeNull();
+      expect(customerRow.readAt).toBeNull();
+    });
+
+    it('is idempotent: second call returns updated: 0', async () => {
+      const customer = await h.createUser();
+      const owner = await h.createUser({ role: 'admin' });
+      await h.prisma.user.update({ where: { id: owner.id }, data: { isOwner: true } });
+      const req1 = await seedRequest(customer.id);
+      await h.prisma.requestMessage.create({
+        data: { requestId: req1.id, senderId: owner.id, content: 'a' },
+      });
+      const cookie = await h.cookieFor(customer.id);
+      const first = await h.app.inject({
+        method: 'POST', url: `/api/requests/${req1.id}/messages/read`, headers: { cookie },
+      });
+      expect(first.json().data.updated).toBe(1);
+      const second = await h.app.inject({
+        method: 'POST', url: `/api/requests/${req1.id}/messages/read`, headers: { cookie },
+      });
+      expect(second.json().data.updated).toBe(0);
+    });
+  });
 });
