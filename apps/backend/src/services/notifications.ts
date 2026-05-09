@@ -17,6 +17,7 @@ export type NotifyAudience = 'owners' | 'customer';
 
 interface RequestForNotify {
   id: string;
+  orderNumber: number;
   total: { toString(): string } | string;
   scheduledFor: Date;
   contactName: string;
@@ -53,6 +54,7 @@ function fmtItems(r: RequestForNotify): string {
 
 function fmtBase(r: RequestForNotify): string {
   return [
+    `Order #${r.orderNumber}`,
     `Scheduled: ${new Date(r.scheduledFor).toLocaleString()}`,
     `Total: $${r.total.toString()}`,
     ``,
@@ -75,7 +77,7 @@ export async function notifyOrderArrived(
   if (channels.mailer) {
     const recipients = await ownerEmails(prisma);
     if (recipients.length > 0) {
-      const subject = `New request from ${r.contactName}`;
+      const subject = `New request #${r.orderNumber} from ${r.contactName}`;
       const text = [
         `A new request just came in.`,
         ``,
@@ -93,7 +95,7 @@ export async function notifyOrderArrived(
     try {
       await channels.mailer.send({
         to: r.contactEmail,
-        subject: `We received your Velvet Scoop request`,
+        subject: `We received your Velvet Scoop request #${r.orderNumber}`,
         text: [
           `Hi ${r.contactName},`,
           ``,
@@ -111,7 +113,7 @@ export async function notifyOrderArrived(
   if (channels.push) {
     try {
       await channels.push.sendToOwners({
-        title: 'New Velvet Scoop order',
+        title: `New Velvet Scoop order #${r.orderNumber}`,
         body: `${r.contactName} — $${r.total.toString()}`,
         url: '/admin',
       });
@@ -132,9 +134,9 @@ export async function notifyOrderStatusChanged(
   if (!r) return;
 
   const subjects: Record<typeof status, string> = {
-    accepted: 'Your Velvet Scoop request is confirmed',
-    completed: 'Your Velvet Scoop request is ready',
-    cancelled: 'Your Velvet Scoop request was cancelled',
+    accepted: `Your Velvet Scoop request #${r.orderNumber} is confirmed`,
+    completed: `Your Velvet Scoop request #${r.orderNumber} is ready`,
+    cancelled: `Your Velvet Scoop request #${r.orderNumber} was cancelled`,
   };
   const intros: Record<typeof status, string> = {
     accepted: `Good news — we accepted your request and have you on the schedule.`,
@@ -160,7 +162,7 @@ export async function notifyOrderStatusChanged(
         try {
           await channels.mailer.send({
             to: recipients,
-            subject: `Cancelled: request from ${r.contactName}`,
+            subject: `Cancelled: request #${r.orderNumber} from ${r.contactName}`,
             text: [`A request was cancelled.`, ``, fmtBase(r)].join('\n'),
           });
         } catch (err) {
@@ -191,7 +193,7 @@ export async function notifyOrderStatusChanged(
     if (status === 'cancelled') {
       try {
         await channels.push.sendToOwners({
-          title: `Order cancelled: ${r.contactName}`,
+          title: `Order #${r.orderNumber} cancelled: ${r.contactName}`,
           body: `$${r.total.toString()} — see admin`,
           url: '/admin',
         });

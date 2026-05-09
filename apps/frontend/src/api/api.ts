@@ -52,6 +52,7 @@ export interface RequestItemLine {
 
 export interface OrderRequest {
   id: string;
+  orderNumber: number;
   userId: string;
   total: string;
   scheduledFor: string;
