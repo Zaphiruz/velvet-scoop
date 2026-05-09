@@ -1,4 +1,4 @@
-import type { FastifyInstance, FastifyReply } from 'fastify';
+import type { FastifyInstance, FastifyReply, FastifyRequest } from 'fastify';
 import type { PrismaClient } from '@prisma/client';
 import { notifyMessage, type NotificationChannels } from '../services/notifications.js';
 
@@ -65,7 +65,19 @@ export function registerRequestMessageRoutes(app: FastifyInstance, deps: Request
 
   app.post<{ Params: { id: string }; Body: { content?: unknown } }>(
     '/api/requests/:id/messages',
-    { preHandler: app.requireAuth },
+    {
+      preHandler: app.requireAuth,
+      config: {
+        // Per-user 60-second cap on chat sends. A 200/day cap is documented in
+        // the spec as a follow-up — @fastify/rate-limit's per-route config takes
+        // a single window, so layering two needs a custom preHandler.
+        rateLimit: {
+          max: 30,
+          timeWindow: '1 minute',
+          keyGenerator: (req: FastifyRequest) => req.user?.id ?? req.ip,
+        },
+      },
+    },
     async (req, reply) => {
       const viewer = req.user!;
       const loaded = await loadRequestForParticipant(deps.prisma, req.params.id, viewer, reply);
