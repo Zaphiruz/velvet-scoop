@@ -22,6 +22,9 @@ export function RequestsPage() {
   const [cancelRequest] = useCancelRequestMutation();
   const [expanded, setExpanded] = useState<Record<string, boolean>>({});
 
+  // Backend returns own-only for members, all for admins. On the user-facing
+  // "My requests" page we always show only the caller's, so admins keep the
+  // /admin view for everyone-else's.
   const mine = me ? requests?.filter((r) => r.userId === me.id) ?? [] : [];
 
   if (isLoading) return <p className="px-4 py-6 text-sm text-slate-400">Loading…</p>;
@@ -64,7 +67,10 @@ export function RequestsPage() {
                     >
                       {r.status}
                     </span>
-                    <span className="font-mono text-xs text-slate-500">
+                    <span
+                      className="font-mono text-xs text-slate-500"
+                      title="Quote this order number on payment"
+                    >
                       #{r.orderNumber}
                     </span>
                   </div>

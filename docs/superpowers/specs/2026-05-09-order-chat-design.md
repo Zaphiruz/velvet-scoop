@@ -139,7 +139,7 @@ Mounted in a new route file `apps/backend/src/routes/request-messages.ts`.
 | `GET`    | `/api/requests/:id/messages`               | List messages for the thread, oldest first, including `sender.displayName`. Soft-deleted rows return `content: null, deleted: true`. |
 | `POST`   | `/api/requests/:id/messages`               | Send (`{ content: string }`). 201 with the created message. |
 | `POST`   | `/api/requests/:id/messages/read`          | Idempotently mark all counterparty messages on this thread as read. Returns `{ updated: number }`. |
-| `DELETE` | `/api/messages/:msgId`                     | Soft-delete own message. 200 on success. |
+| `DELETE` | `/api/requests/:id/messages/:msgId`        | Soft-delete own message. 200 on success. |
 
 Response envelope follows the existing `{ data: ... }` / `{ error: ... }`
 pattern.
@@ -161,7 +161,7 @@ isParticipant ? next() : 403 FORBIDDEN
 `request.status in ('pending', 'accepted')`; otherwise 409 with code
 `THREAD_CLOSED`.
 
-`DELETE /api/messages/:msgId` requires `viewer.id === message.senderId`;
+`DELETE /api/requests/:id/messages/:msgId` requires `viewer.id === message.senderId`;
 otherwise 403. (The viewer can also see the soft-deleted state via the
 list endpoint regardless.)
 
@@ -291,7 +291,7 @@ Backend, in a new file `apps/backend/src/routes/request-messages.test.ts`:
    joined.
 7. `POST .../read` flips `readAt` on counterparty messages only — the
    viewer's own messages stay null.
-8. `DELETE /api/messages/:msgId` by sender soft-deletes; non-sender gets
+8. `DELETE /api/requests/:id/messages/:msgId` by sender soft-deletes; non-sender gets
    403; subsequent `GET` returns `content: null, deleted: true`.
 9. Rate limit: 31st send within 60 s → 429.
 10. `notifyMessage` is invoked exactly once per send (mocked
