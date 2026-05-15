@@ -39,6 +39,7 @@ model User {
   reviews             Review[]
   messagesSent        Message[]            @relation("MessageSender")
   messagesReceived    Message[]            @relation("MessageRecipient")
+  requestMessagesSent RequestMessage[]
   auditEntries        AuditLog[]
   feedbackSubmissions FeedbackSubmission[]
   pushSubscriptions   PushSubscription[]
@@ -82,9 +83,10 @@ model Request {
   createdAt    DateTime      @default(now()) @map("created_at")
   updatedAt    DateTime      @updatedAt @map("updated_at")
 
-  user    User          @relation(fields: [userId], references: [id])
-  items   RequestItem[]
-  reviews Review[]
+  user     User             @relation(fields: [userId], references: [id])
+  items    RequestItem[]
+  reviews  Review[]
+  messages RequestMessage[]
 
   @@index([userId])
   @@index([status])
@@ -138,6 +140,22 @@ model Message {
   @@index([senderId])
   @@index([recipientId])
   @@map("messages")
+}
+
+model RequestMessage {
+  id        String    @id @default(uuid()) @db.Uuid
+  requestId String    @map("request_id") @db.Uuid
+  senderId  String    @map("sender_id") @db.Uuid
+  content   String
+  readAt    DateTime? @map("read_at")
+  deletedAt DateTime? @map("deleted_at")
+  createdAt DateTime  @default(now()) @map("created_at")
+
+  request Request @relation(fields: [requestId], references: [id], onDelete: Cascade)
+  sender  User    @relation(fields: [senderId], references: [id])
+
+  @@index([requestId, createdAt])
+  @@map("request_messages")
 }
 
 model FeedbackSubmission {

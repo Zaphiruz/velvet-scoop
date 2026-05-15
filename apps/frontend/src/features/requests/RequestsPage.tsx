@@ -1,3 +1,4 @@
+import { useState } from 'react';
 import { Link } from 'react-router-dom';
 import {
   useCancelRequestMutation,
@@ -5,6 +6,8 @@ import {
   useListRequestsQuery,
   type OrderRequest,
 } from '../../api/api';
+import { MessageThread } from './MessageThread';
+import { MessagesToggle } from './MessagesToggle';
 
 const STATUS_STYLES: Record<OrderRequest['status'], string> = {
   pending: 'border-amber-700 bg-amber-950/40 text-amber-200',
@@ -17,6 +20,7 @@ export function RequestsPage() {
   const { data: me } = useGetMeQuery();
   const { data: requests, isLoading } = useListRequestsQuery();
   const [cancelRequest] = useCancelRequestMutation();
+  const [expanded, setExpanded] = useState<Record<string, boolean>>({});
 
   // Backend returns own-only for members, all for admins. On the user-facing
   // "My requests" page we always show only the caller's, so admins keep the
@@ -94,6 +98,20 @@ export function RequestsPage() {
               </ul>
               {r.contactNotes && (
                 <p className="mt-2 text-xs italic text-slate-400">"{r.contactNotes}"</p>
+              )}
+
+              <MessagesToggle
+                request={r}
+                expanded={!!expanded[r.id]}
+                onToggle={() => setExpanded((s) => ({ ...s, [r.id]: !s[r.id] }))}
+              />
+              {expanded[r.id] && (
+                <MessageThread
+                  requestId={r.id}
+                  orderNumber={r.orderNumber}
+                  status={r.status}
+                  viewerRole="customer"
+                />
               )}
             </li>
           ))}

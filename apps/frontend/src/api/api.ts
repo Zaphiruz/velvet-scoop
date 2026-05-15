@@ -96,6 +96,17 @@ export interface Message {
   recipient?: { id: string; displayName: string };
 }
 
+export interface RequestMessage {
+  id: string;
+  requestId: string;
+  senderId: string;
+  sender: { id: string; displayName: string };
+  content: string | null;
+  deleted: boolean;
+  readAt: string | null;
+  createdAt: string;
+}
+
 export interface FeedbackSubmission {
   id: string;
   issueNumber: number;
@@ -120,7 +131,7 @@ export interface ItemUpsertBody {
 export const api = createApi({
   reducerPath: 'api',
   baseQuery: createBaseQuery({ baseUrl: API_BASE, onUnauthorized: defaultOnUnauthorized }),
-  tagTypes: ['Me', 'Item', 'Request', 'Review', 'Message', 'User', 'Feedback'],
+  tagTypes: ['Me', 'Item', 'Request', 'Review', 'Message', 'RequestMessage', 'User', 'Feedback'],
   endpoints: (b) => ({
     getMe: b.query<Me, void>({
       query: () => ({ url: 'auth/me' }),
@@ -251,6 +262,45 @@ export const api = createApi({
       invalidatesTags: ['Message'],
     }),
 
+    listRequestMessages: b.query<RequestMessage[], string>({
+      query: (requestId) => ({ url: `requests/${requestId}/messages` }),
+      transformResponse: (r: { data: RequestMessage[] }) => r.data,
+      providesTags: (_res, _err, requestId) => [
+        { type: 'RequestMessage', id: requestId },
+      ],
+    }),
+    sendRequestMessage: b.mutation<RequestMessage, { requestId: string; content: string }>({
+      query: ({ requestId, content }) => ({
+        url: `requests/${requestId}/messages`,
+        method: 'POST',
+        body: { content },
+      }),
+      transformResponse: (r: { data: RequestMessage }) => r.data,
+      invalidatesTags: (_res, _err, { requestId }) => [
+        { type: 'RequestMessage', id: requestId },
+      ],
+    }),
+    markRequestThreadRead: b.mutation<{ updated: number }, string>({
+      query: (requestId) => ({
+        url: `requests/${requestId}/messages/read`,
+        method: 'POST',
+      }),
+      transformResponse: (r: { data: { updated: number } }) => r.data,
+      invalidatesTags: (_res, _err, requestId) => [
+        { type: 'RequestMessage', id: requestId },
+      ],
+    }),
+    deleteRequestMessage: b.mutation<{ ok: boolean }, { requestId: string; messageId: string }>({
+      query: ({ requestId, messageId }) => ({
+        url: `requests/${requestId}/messages/${messageId}`,
+        method: 'DELETE',
+      }),
+      transformResponse: (r: { data: { ok: boolean } }) => r.data,
+      invalidatesTags: (_res, _err, { requestId }) => [
+        { type: 'RequestMessage', id: requestId },
+      ],
+    }),
+
     getVapidPublicKey: b.query<string, void>({
       query: () => ({ url: 'push/vapid-public-key' }),
       transformResponse: (r: { data: { publicKey: string } }) => r.data.publicKey,
@@ -347,6 +397,10 @@ export const {
   useListMessagesQuery,
   useSendMessageMutation,
   useMarkMessageReadMutation,
+  useListRequestMessagesQuery,
+  useSendRequestMessageMutation,
+  useMarkRequestThreadReadMutation,
+  useDeleteRequestMessageMutation,
   useListAdminUsersQuery,
   usePatchAdminUserMutation,
   useBanUserMutation,

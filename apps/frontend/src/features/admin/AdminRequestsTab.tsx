@@ -1,3 +1,4 @@
+import { useState } from 'react';
 import {
   useAcceptRequestMutation,
   useCancelRequestMutation,
@@ -5,6 +6,8 @@ import {
   useListRequestsQuery,
   type OrderRequest,
 } from '../../api/api';
+import { MessageThread } from '../requests/MessageThread';
+import { MessagesToggle } from '../requests/MessagesToggle';
 
 const STATUS_STYLES: Record<OrderRequest['status'], string> = {
   pending: 'border-amber-700 bg-amber-950/40 text-amber-200',
@@ -18,6 +21,7 @@ export function AdminRequestsTab() {
   const [acceptRequest] = useAcceptRequestMutation();
   const [completeRequest] = useCompleteRequestMutation();
   const [cancelRequest] = useCancelRequestMutation();
+  const [expanded, setExpanded] = useState<Record<string, boolean>>({});
 
   if (isLoading) return <p className="text-sm text-slate-400">Loading…</p>;
   if (!requests || requests.length === 0) {
@@ -89,6 +93,20 @@ export function AdminRequestsTab() {
           </ul>
           {r.contactNotes && (
             <p className="mt-2 text-xs italic text-slate-400">"{r.contactNotes}"</p>
+          )}
+
+          <MessagesToggle
+            request={r}
+            expanded={!!expanded[r.id]}
+            onToggle={() => setExpanded((s) => ({ ...s, [r.id]: !s[r.id] }))}
+          />
+          {expanded[r.id] && (
+            <MessageThread
+              requestId={r.id}
+              orderNumber={r.orderNumber}
+              status={r.status}
+              viewerRole="owner"
+            />
           )}
         </li>
       ))}
