@@ -1,124 +1,85 @@
-# Velvet Scoop API
+# Velvet Scoop
 
-A TypeScript Express application for user management and authentication, using MongoDB and Mongoose.
+An ordering site for a small ice cream operation. Customers browse the flavors, place a request scheduled for a date and time, and chat with the team about their order. Owners run the admin side from the same app.
 
-## Project Structure
+> Production: <https://velvet-scoops.wispy-nook.casa>
+
+## Stack
+
+- **Backend** (`apps/backend`): Fastify 5 + Prisma 5 + Postgres + Redis + openid-client (Authentik OIDC). Optional Resend SMTP for transactional email; optional VAPID web-push.
+- **Frontend** (`apps/frontend`): React + Vite + Tailwind + Redux Toolkit Query. Served by Caddy in prod, by `vite dev` locally.
+- **Shared** (`packages/shared`): cross-app type/utility helpers.
+- **Monorepo**: pnpm workspaces; Node ≥ 20.10.
+
+## Repo layout
 
 ```
-website-v2/
-├── src/
-│   ├── controllers/
-│   │   ├── index.ts
-│   │   └── userController.ts
-│   ├── dtos/
-│   │   ├── index.ts
-│   │   └── user.dto.ts
-│   ├── models/
-│   │   ├── index.ts
-│   │   └── User.ts
-│   ├── routes/
-│   │   └── user.ts
-│   ├── services/
-│   │   └── db.ts
-│   └── test/
-│       ├── setup.ts
-│       ├── mongoMemoryServer.ts
-│       ├── e2e/
-│       │   └── user.e2e.test.ts
-│       └── user.test.ts
-├── openapi.json
-├── package.json
-├── tsconfig.json
-└── README.md
+apps/
+  backend/      Fastify API + Prisma schema + migrations
+  frontend/     React SPA
+packages/
+  shared/       shared types
+docs/
+  superpowers/  feature specs + implementation plans
+docker-compose.yml          local dev (postgres:5433, redis:6380)
+docker-compose.prod.yml     production stack
+OPERATIONS.md   production deploy notes (Vault, Authentik, push, email)
 ```
 
 ## Features
-- User registration, login, and logout
-- Password hashing with bcryptjs
-- DTOs for request/response validation
-- Session management with MongoDB TTL
-- JWT token returned and set as cookie on login
-- Authentication middleware for private routes
-- MongoDB in-memory server for testing
-- E2E and unit tests with Jest and Supertest
-- OpenAPI v3 spec in JSON format
 
-## Getting Started
-1. Install dependencies:
-   ```bash
-   npm install
-   ```
-2. Run tests:
-   ```bash
-   npm test
-   ```
-3. Start development server:
-   ```bash
-   npm run dev
-   ```
+- **Authentication** via Authentik OIDC. Sessions in Redis, HTTP-only cookies. Role sync from Authentik groups (`velvet-scoop-users` → member, `velvet-scoop-admins` → admin).
+- **Items catalog**: admin CRUD; customers browse flavors with nutrition, ingredients, allergens, seasonal flag, soft-delete.
+- **Order requests** with sequential `orderNumber` (e.g. `#42`) for payment correlation. Status flow: `pending` → `accepted` → `completed`, with cancel from either side under the right conditions.
+- **Per-order chat threads** between the customer and the owner pool. Inline expand on the request card, 12-second polling, push wake, soft-delete own messages. Read-only on completed/cancelled orders.
+- **Reviews** on completed orders with admin moderation.
+- **Web push notifications** (VAPID) on order events and chat messages, plus email fallback via Resend SMTP. Both are opt-in at the operations layer.
+- **In-app feedback widget** on Profile: writes a GitHub issue on `Zaphiruz/velvet-scoop` (optional, requires a fine-grained PAT in Vault).
+- **Admin UI**: Items / Requests / Users tabs, including an "Owner" toggle that controls who receives owner notifications.
 
-## API Documentation
-See `openapi.json` for the full API specification.
+## Local dev quick-start
 
-### Logout Endpoint
-`POST /api/user/logout` (private)
-- Requires authentication (JWT cookie or header)
-- Destroys session and clears cookies
-- Returns `{ message: 'Logged out successfully' }` on success
+```bash
+# 1. Start Postgres + Redis (port-remapped 5433/6380 to avoid host clashes)
+docker compose up -d postgres redis
 
+# 2. Apply migrations
+pnpm prisma:migrate
 
-### Login Response
-On successful login:
-- Response includes all user fields except password
-- `session`: The session identifier
-- `jwt`: JWT token for authentication
-- Both `session` and `jwt` are set as HTTP-only cookies
+# 3. Backend (terminal 1)
+pnpm --filter @velvet-scoop/backend dev
 
-### Logout Test
-Logout is covered by E2E tests:
-- Registers and logs in a user
-- Calls `/api/user/logout` with cookies
-- Expects session destruction and cookies cleared
+# 4. Frontend (terminal 2)
+pnpm --filter @velvet-scoop/frontend dev
+# → http://localhost:5180 (proxies /api → :3000)
+```
 
+A `.env` file at the repo root is expected; see `OPERATIONS.md` for the full env surface. Many env vars are optional (email, push, feedback) — the app degrades gracefully when they're absent.
 
-### Message Endpoints
+## Tests
 
-#### Send Message (User)
-`POST /api/messages/send` (private)
-- Body: `{ recipientId: string, content: string }`
-- Returns: MessageResponse
+```bash
+# One-time test DB setup
+pnpm --filter @velvet-scoop/backend test:db:setup
 
-#### Get My Messages (User)
-`GET /api/messages/my` (private)
-- Returns: Array of MessageResponse (sent/received, not deleted)
-- Marks unread messages as read
+# Run
+pnpm --filter @velvet-scoop/backend test
+pnpm -r typecheck
+```
 
-#### Send Message (Admin)
-`POST /api/messages/admin/send` (admin)
-- Body: `{ recipientId: string, content: string }`
-- Returns: MessageResponse
+CI (`.github/workflows/ci.yml`) runs backend tests + docker build on every push to `main` and every PR.
 
-#### Get All Messages (Admin)
-`GET /api/messages/admin/all` (admin)
-- Returns: Array of MessageResponse
+## Deployment
 
-#### Delete Message (Admin)
-`DELETE /api/messages/admin/:id` (admin)
-- Returns: MessageResponse or 404 if not found
+See `OPERATIONS.md` for the full production deploy pattern (Vault, Authentik, nginx, Cloudflare Tunnel, self-hosted GitHub runner).
 
-### Message Model
-- `sender`: User ID
-- `recipient`: User ID
-- `content`: string
-- `read`: boolean
-- `readAt`: Date
-- `readBy`: User ID
-- `deleted`: boolean
-- `deletedBy`: User ID
-- `deletedAt`: Date
-- `createdAt`: Date
+## Architecture docs
 
-### Message DTOs
-- `CreateMessageRequest`: `{ recipientId, content }`
-- `MessageResponse`: All model fields except password
+Design specs and implementation plans for individual features live in `docs/superpowers/`:
 
+- `specs/` — design docs (decisions, non-goals, API shapes)
+- `plans/` — task-by-task implementation plans
+
+The most recent additions:
+
+- [`2026-05-09-order-chat-design.md`](docs/superpowers/specs/2026-05-09-order-chat-design.md) — per-order customer ↔ owner-pool chat.
