@@ -299,4 +299,72 @@ describe('requests routes', () => {
     expect(res.statusCode).toBe(200);
     expect(res.json().data.paidAt).not.toBeNull();
   });
+
+  it('admin can mark a request unpaid; paidAt becomes null; audit row written', async () => {
+    const user = await h.createUser();
+    const admin = await h.createUser({ role: 'admin' });
+    const item = await seedItem();
+    const created = await h.app.inject({
+      method: 'POST',
+      url: '/api/requests',
+      headers: { cookie: await h.cookieFor(user.id), 'content-type': 'application/json' },
+      payload: basePayload([{ itemId: item.id, quantity: 1 }]),
+    });
+    const id = created.json().data.id;
+
+    // First mark paid.
+    await h.app.inject({
+      method: 'POST',
+      url: `/api/requests/${id}/paid`,
+      headers: { cookie: await h.cookieFor(admin.id) },
+    });
+    // Then unmark.
+    const res = await h.app.inject({
+      method: 'POST',
+      url: `/api/requests/${id}/unpaid`,
+      headers: { cookie: await h.cookieFor(admin.id) },
+    });
+    expect(res.statusCode).toBe(200);
+    expect(res.json().data.paidAt).toBeNull();
+
+    const unpaidAudit = await h.prisma.auditLog.findFirst({
+      where: { entityType: 'Request', entityId: id, action: 'unpaid' },
+    });
+    expect(unpaidAudit).not.toBeNull();
+  });
+
+  it('marking paid twice in a row is idempotent (paidAt unchanged on second call)', async () => {
+    const user = await h.createUser();
+    const admin = await h.createUser({ role: 'admin' });
+    const item = await seedItem();
+    const created = await h.app.inject({
+      method: 'POST',
+      url: '/api/requests',
+      headers: { cookie: await h.cookieFor(user.id), 'content-type': 'application/json' },
+      payload: basePayload([{ itemId: item.id, quantity: 1 }]),
+    });
+    const id = created.json().data.id;
+    const adminCookie = await h.cookieFor(admin.id);
+
+    const first = await h.app.inject({
+      method: 'POST', url: `/api/requests/${id}/paid`, headers: { cookie: adminCookie },
+    });
+    const firstPaidAt = first.json().data.paidAt;
+    expect(firstPaidAt).not.toBeNull();
+
+    // Small delay so a NEW timestamp would differ from the original.
+    await new Promise((r) => setTimeout(r, 20));
+
+    const second = await h.app.inject({
+      method: 'POST', url: `/api/requests/${id}/paid`, headers: { cookie: adminCookie },
+    });
+    expect(second.statusCode).toBe(200);
+    expect(second.json().data.paidAt).toBe(firstPaidAt);
+
+    // Exactly one 'paid' audit row.
+    const auditCount = await h.prisma.auditLog.count({
+      where: { entityType: 'Request', entityId: id, action: 'paid' },
+    });
+    expect(auditCount).toBe(1);
+  });
 });
