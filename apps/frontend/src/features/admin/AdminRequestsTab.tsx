@@ -4,6 +4,8 @@ import {
   useCancelRequestMutation,
   useCompleteRequestMutation,
   useListRequestsQuery,
+  useMarkRequestPaidMutation,
+  useMarkRequestUnpaidMutation,
   type OrderRequest,
 } from '../../api/api';
 import { MessageThread } from '../requests/MessageThread';
@@ -21,6 +23,8 @@ export function AdminRequestsTab() {
   const [acceptRequest] = useAcceptRequestMutation();
   const [completeRequest] = useCompleteRequestMutation();
   const [cancelRequest] = useCancelRequestMutation();
+  const [markPaid] = useMarkRequestPaidMutation();
+  const [markUnpaid] = useMarkRequestUnpaidMutation();
   const [expanded, setExpanded] = useState<Record<string, boolean>>({});
 
   if (isLoading) return <p className="text-sm text-slate-400">Loading…</p>;
@@ -48,6 +52,11 @@ export function AdminRequestsTab() {
                 <span className="font-mono text-xs text-slate-500">
                   #{r.orderNumber}
                 </span>
+                {r.paidAt && (
+                  <span className="rounded-full border border-emerald-700 bg-emerald-950/40 px-2 py-0.5 text-xs text-emerald-200">
+                    Paid
+                  </span>
+                )}
               </div>
               <p className="text-xs text-slate-500">
                 {r.contactEmail} • scheduled{' '}
@@ -80,6 +89,22 @@ export function AdminRequestsTab() {
                   className="rounded border border-red-900 bg-red-950/40 px-2 py-1 text-xs text-red-300 hover:bg-red-900/40"
                 >
                   Cancel
+                </button>
+              )}
+              {!r.paidAt ? (
+                <button
+                  onClick={() => markPaid(r.id)}
+                  className="rounded border border-slate-700 bg-slate-800/60 px-2 py-1 text-xs text-slate-200 hover:bg-slate-700"
+                >
+                  Mark paid
+                </button>
+              ) : (
+                <button
+                  onClick={() => markUnpaid(r.id)}
+                  title="Click to mark unpaid"
+                  className="rounded border border-emerald-700 bg-emerald-950/40 px-2 py-1 text-xs text-emerald-200 hover:bg-emerald-900/40"
+                >
+                  Paid ✓
                 </button>
               )}
             </div>

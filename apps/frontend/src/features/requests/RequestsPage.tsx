@@ -73,6 +73,11 @@ export function RequestsPage() {
                     >
                       #{r.orderNumber}
                     </span>
+                    {r.paidAt && (
+                      <span className="rounded-full border border-emerald-700 bg-emerald-950/40 px-2 py-0.5 text-xs text-emerald-200">
+                        Paid
+                      </span>
+                    )}
                   </div>
                   <p className="text-xs text-slate-500">
                     Scheduled {new Date(r.scheduledFor).toLocaleString()}
