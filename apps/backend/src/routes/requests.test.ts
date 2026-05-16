@@ -228,4 +228,75 @@ describe('requests routes', () => {
     });
     expect(conflict.statusCode).toBe(409);
   });
+
+  it('admin can mark a request paid; paidAt is set; audit row written', async () => {
+    const user = await h.createUser();
+    const admin = await h.createUser({ role: 'admin' });
+    const item = await seedItem();
+    const created = await h.app.inject({
+      method: 'POST',
+      url: '/api/requests',
+      headers: { cookie: await h.cookieFor(user.id), 'content-type': 'application/json' },
+      payload: basePayload([{ itemId: item.id, quantity: 1 }]),
+    });
+    const id = created.json().data.id;
+
+    const res = await h.app.inject({
+      method: 'POST',
+      url: `/api/requests/${id}/paid`,
+      headers: { cookie: await h.cookieFor(admin.id) },
+    });
+    expect(res.statusCode).toBe(200);
+    expect(res.json().data.paidAt).not.toBeNull();
+
+    const audit = await h.prisma.auditLog.findFirst({
+      where: { entityType: 'Request', entityId: id, action: 'paid' },
+    });
+    expect(audit).not.toBeNull();
+    expect(audit!.actorId).toBe(admin.id);
+  });
+
+  it('non-admin cannot mark a request paid (403)', async () => {
+    const user = await h.createUser();
+    const item = await seedItem();
+    const created = await h.app.inject({
+      method: 'POST',
+      url: '/api/requests',
+      headers: { cookie: await h.cookieFor(user.id), 'content-type': 'application/json' },
+      payload: basePayload([{ itemId: item.id, quantity: 1 }]),
+    });
+    const id = created.json().data.id;
+
+    const res = await h.app.inject({
+      method: 'POST',
+      url: `/api/requests/${id}/paid`,
+      headers: { cookie: await h.cookieFor(user.id) },
+    });
+    expect(res.statusCode).toBe(403);
+  });
+
+  it('admin can mark a cancelled request paid (no status gating)', async () => {
+    const user = await h.createUser();
+    const admin = await h.createUser({ role: 'admin' });
+    const item = await seedItem();
+    const created = await h.app.inject({
+      method: 'POST',
+      url: '/api/requests',
+      headers: { cookie: await h.cookieFor(user.id), 'content-type': 'application/json' },
+      payload: basePayload([{ itemId: item.id, quantity: 1 }]),
+    });
+    const id = created.json().data.id;
+    await h.prisma.request.update({
+      where: { id },
+      data: { status: 'cancelled', cancelledAt: new Date() },
+    });
+
+    const res = await h.app.inject({
+      method: 'POST',
+      url: `/api/requests/${id}/paid`,
+      headers: { cookie: await h.cookieFor(admin.id) },
+    });
+    expect(res.statusCode).toBe(200);
+    expect(res.json().data.paidAt).not.toBeNull();
+  });
 });
