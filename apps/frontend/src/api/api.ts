@@ -63,6 +63,7 @@ export interface OrderRequest {
   acceptedAt: string | null;
   completedAt: string | null;
   cancelledAt: string | null;
+  paidAt: string | null;
   deletedAt: string | null;
   createdAt: string;
   updatedAt: string;
@@ -215,6 +216,16 @@ export const api = createApi({
       }),
       transformResponse: (r: { data: OrderRequest }) => r.data,
       invalidatesTags: (_r, _e, a) => [{ type: 'Request', id: a.id }, 'Request'],
+    }),
+    markRequestPaid: b.mutation<OrderRequest, string>({
+      query: (id) => ({ url: `requests/${id}/paid`, method: 'POST' }),
+      transformResponse: (r: { data: OrderRequest }) => r.data,
+      invalidatesTags: (_r, _e, id) => [{ type: 'Request', id }, 'Request'],
+    }),
+    markRequestUnpaid: b.mutation<OrderRequest, string>({
+      query: (id) => ({ url: `requests/${id}/unpaid`, method: 'POST' }),
+      transformResponse: (r: { data: OrderRequest }) => r.data,
+      invalidatesTags: (_r, _e, id) => [{ type: 'Request', id }, 'Request'],
     }),
 
     listReviews: b.query<Review[], { includeUnapproved?: boolean } | void>({
@@ -390,6 +401,8 @@ export const {
   useAcceptRequestMutation,
   useCompleteRequestMutation,
   useCancelRequestMutation,
+  useMarkRequestPaidMutation,
+  useMarkRequestUnpaidMutation,
   useListReviewsQuery,
   useCreateReviewMutation,
   useApproveReviewMutation,

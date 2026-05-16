@@ -189,6 +189,68 @@ export function registerRequestRoutes(app: FastifyInstance, deps: RequestRouteDe
     },
   );
 
+  app.post<{ Params: { id: string } }>(
+    '/api/requests/:id/paid',
+    { preHandler: adminHook },
+    async (req, reply) => {
+      const r = await deps.prisma.request.findUnique({ where: { id: req.params.id } });
+      if (!r || r.deletedAt) {
+        return reply.code(404).send({ error: { code: 'NOT_FOUND', message: 'Request not found' } });
+      }
+      if (r.paidAt !== null) {
+        // Idempotent — already paid. Return current state without writing audit.
+        const current = await deps.prisma.request.findUnique({
+          where: { id: r.id },
+          include: requestInclude,
+        });
+        return { data: current };
+      }
+      const updated = await deps.prisma.request.update({
+        where: { id: r.id },
+        data: { paidAt: new Date() },
+        include: requestInclude,
+      });
+      await writeAudit(deps.prisma, {
+        actorId: req.user!.id,
+        entityType: 'Request',
+        entityId: r.id,
+        action: 'paid',
+      });
+      return { data: updated };
+    },
+  );
+
+  app.post<{ Params: { id: string } }>(
+    '/api/requests/:id/unpaid',
+    { preHandler: adminHook },
+    async (req, reply) => {
+      const r = await deps.prisma.request.findUnique({ where: { id: req.params.id } });
+      if (!r || r.deletedAt) {
+        return reply.code(404).send({ error: { code: 'NOT_FOUND', message: 'Request not found' } });
+      }
+      if (r.paidAt === null) {
+        // Idempotent — already unpaid.
+        const current = await deps.prisma.request.findUnique({
+          where: { id: r.id },
+          include: requestInclude,
+        });
+        return { data: current };
+      }
+      const updated = await deps.prisma.request.update({
+        where: { id: r.id },
+        data: { paidAt: null },
+        include: requestInclude,
+      });
+      await writeAudit(deps.prisma, {
+        actorId: req.user!.id,
+        entityType: 'Request',
+        entityId: r.id,
+        action: 'unpaid',
+      });
+      return { data: updated };
+    },
+  );
+
   app.post<{ Params: { id: string }; Body: { reason?: string } }>(
     '/api/requests/:id/cancel',
     { preHandler: app.requireAuth },
